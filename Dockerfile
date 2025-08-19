@@ -15,8 +15,15 @@ COPY version.py ./
 COPY floating_point/ ./floating_point/
 COPY test/ ./test/
 
-# Install only test dependencies (PyTorch is already installed)
-RUN pip install pytest parameterized
+# Install build dependencies and test dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python build dependencies
+RUN pip install pytest parameterized numpy ninja
 
 # Set the library path for the extension (PyTorch image already has correct paths)
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
