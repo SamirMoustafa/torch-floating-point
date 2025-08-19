@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1> Torch Floating Point</h1>
-<img src="assets/torch-floating-point-logo.png"/>
+<img src="https://raw.githubusercontent.com/SamirMoustafa/torch-floating-point/refs/heads/main/assets/torch-floating-point-logo.png"/>
 
 ![python-3.10](https://img.shields.io/badge/python-3.10%2B-blue)
 ![pytorch-1.13.1](https://img.shields.io/badge/torch-2.4.1%2B-orange)
