@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torch-floating-point"
-version = "0.0.1"
+dynamic = ["version"]
 description = "A PyTorch library for custom floating point quantization with autograd support"
 readme = "README.md"
 
@@ -56,7 +56,7 @@ packages = ["floating_point"]
 floating_point = ["*.cpp", "*.cu", "*.h"]
 
 [tool.setuptools.dynamic]
-version = {attr = "floating_point.__version__"}
+version = {attr = "version.__version__"}
 
 [tool.setuptools.package-dir]
 floating_point = "floating_point"
