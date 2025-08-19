@@ -9,6 +9,7 @@ WORKDIR /app
 
 # Copy only necessary files
 COPY pyproject.toml ./
+COPY setup.py ./
 COPY README.md ./
 COPY version.py ./
 COPY floating_point/ ./floating_point/
@@ -20,9 +21,15 @@ RUN pip install pytest parameterized
 # Set the library path for the extension (PyTorch image already has correct paths)
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
-# Install the package in development mode (without building extension)
-RUN pip install -e floating_point
+# Install the package in development mode
+RUN pip install -e .
+
+# Force rebuild of the extension to ensure compatibility
+RUN python setup.py clean --all
+RUN python setup.py build_ext --inplace
+
+# Run tests to verify everything works
+RUN pytest --log-cli-level=DEBUG --capture=tee-sys test/round.py test/data_types.py -v
 
 # Default command - just provide a shell for manual execution
 CMD ["/bin/bash"]
-RUN pytest --log-cli-level=DEBUG --capture=tee-sys test/round.py test/data_types.py -v

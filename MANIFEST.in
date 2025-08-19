@@ -1,7 +1,6 @@
 include README.md
 include LICENSE
 include version.py
-include floating_point/version.py
 include floating_point/*.cpp
 include floating_point/*.cu
 include floating_point/*.h

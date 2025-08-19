@@ -1,33 +1,29 @@
-# setup.py build_ext --inplace
+#!/usr/bin/env python3
+"""
+Setup script for torch-floating-point
+"""
+
+# Import version from the project root
+import os
 import platform
 import sys
 from os import environ, path
-from pathlib import Path
 
-# Try to import version from the current directory first (for Docker builds)
-try:
-    from version import __version__
-except ImportError:
-    # If that fails, try to import from the project root (for local development)
-    project_root = Path(__file__).parent.parent
-    sys.path.insert(0, str(project_root))
-    from version import __version__
-
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from setuptools import find_packages, setup
 from torch import cuda
 from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
 from wheel.bdist_wheel import bdist_wheel
 
+from version import __version__
+
 __HERE__ = path.dirname(path.abspath(__file__))
 
 # Get the long description from the README file
 try:
-    # Try to read from the project root (for local development)
-    readme_path = path.join(path.abspath(path.dirname(__file__)), "..", "README.md")
-    with open(readme_path, encoding="utf-8") as f:
+    with open(path.join(__HERE__, "README.md"), encoding="utf-8") as f:
         long_description = f.read()
 except FileNotFoundError:
-    # Fallback for PyPI installation where README.md might not be available
     long_description = "A PyTorch library for custom floating point quantization with autograd support."
 
 # Automatically detect and set CUDA architectures
@@ -45,11 +41,12 @@ if cuda.is_available() and "TORCH_CUDA_ARCH_LIST" not in environ:
 
     environ["TORCH_CUDA_ARCH_LIST"] = ";".join(arch_list)
     print(f"Setting TORCH_CUDA_ARCH_LIST={environ['TORCH_CUDA_ARCH_LIST']}")
+
 extra_compile_args = {"cxx": ["-fopenmp" if platform.system() != "Windows" else "/openmp"]}
 extra_link_args = ["-fopenmp"] if platform.system() != "Windows" else []
 
 # Base sources
-sources = [path.join(__HERE__, "float_round.cpp")]
+sources = ["floating_point/float_round.cpp"]
 define_macros = []
 
 
@@ -67,7 +64,7 @@ class CustomWheel(bdist_wheel):
 if cuda.is_available():
     print("CUDA detected, building with CUDA support.")
     extension_class = CUDAExtension
-    sources.append(path.join(__HERE__, "float_round_cuda.cu"))
+    sources.append("floating_point/float_round_cuda.cu")
     define_macros.append(("WITH_CUDA", None))
     extra_compile_args["nvcc"] = ["-O2"]
 else:
@@ -77,17 +74,17 @@ else:
 setup(
     name="torch-floating-point",
     version=__version__,
-    description="Floating Point Quantization Library",
+    description="A PyTorch library for custom floating point quantization with autograd support",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Samir Moustafa",
     author_email="samir.moustafa.97@gmail.com",
     url="https://github.com/SamirMoustafa/torch-floating-point",
-    install_requires=["torch>=2.4.0"],
+    install_requires=["torch>=2.4.0,<2.6.0"],
     packages=find_packages(),
     ext_modules=[
         extension_class(
-            name="floating_point",
+            name="floating_point.floating_point",
             sources=sources,
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
@@ -95,4 +92,22 @@ setup(
         )
     ],
     cmdclass={"build_ext": BuildExtension, "bdist_wheel": CustomWheel},
+    python_requires=">=3.8",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Framework :: Pytest",
+    ],
+    keywords=["pytorch", "floating-point", "quantization", "autograd", "machine-learning", "deep-learning"],
 )

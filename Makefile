@@ -43,11 +43,11 @@ clean: ## Clean build artifacts
 	find . -type f -name "*.pyo" -delete
 
 build: ## Build the package
-	cd floating_point && python setup.py build_ext --inplace
+	python setup.py build_ext --inplace
 	python -m build
 
 build-wheel: ## Build wheel only
-	cd floating_point && python setup.py build_ext --inplace
+	python setup.py build_ext --inplace
 	python -m build --wheel
 
 build-sdist: ## Build source distribution only
@@ -78,7 +78,7 @@ setup-dev: ## Set up development environment
 setup-ci: ## Set up CI environment
 	pip install pytest parameterized
 	export LD_LIBRARY_PATH=$$(python -c "import torch; print(torch.__file__)")/lib:$$LD_LIBRARY_PATH
-	cd floating_point && python setup.py build_ext --inplace
+	python setup.py build_ext --inplace
 
 version: ## Show current version
 	@python -c "import floating_point; print(floating_point.__version__)"

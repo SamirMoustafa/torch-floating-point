@@ -219,7 +219,7 @@ make full-check
 
 ```bash
 # Build extension
-cd floating_point && python setup.py build_ext --inplace
+python setup.py build_ext --inplace
 
 # Build package
 make build
