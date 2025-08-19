@@ -10,8 +10,8 @@ except ImportError:
     sys.path.insert(0, str(project_root))
     from version import __version__
 
-from .floating_point import autograd
 from .data_types import FloatingPoint
+from .floating_point import autograd
 from .round import Round
 
-__all__ = ["__version__", "autograd", "FloatingPoint", "Round"]
+__all__ = ["FloatingPoint", "Round", "__version__", "autograd"]
