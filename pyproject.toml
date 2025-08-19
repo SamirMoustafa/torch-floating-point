@@ -7,7 +7,7 @@ name = "torch-floating-point"
 version = "0.0.1"
 description = "A PyTorch library for custom floating point quantization with autograd support"
 readme = "README.md"
-license = {text = "MIT"}
+
 authors = [
     {name = "Samir Moustafa", email = "samir.moustafa.97@gmail.com"}
 ]
@@ -55,11 +55,11 @@ packages = ["floating_point"]
 [tool.setuptools.package-data]
 floating_point = ["*.cpp", "*.cu", "*.h"]
 
-[tool.setuptools.package-dir]
-floating_point = "floating_point"
-
 [tool.setuptools.dynamic]
 version = {attr = "floating_point.__version__"}
+
+[tool.setuptools.package-dir]
+floating_point = "floating_point"
 
 # Ruff configuration
 [tool.ruff]
