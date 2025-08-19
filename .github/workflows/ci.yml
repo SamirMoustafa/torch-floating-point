@@ -77,7 +77,8 @@ jobs:
         fi
     - name: Upload to PyPI
       if: steps.check_version.outputs.exists == 'false'
-      run: python -m twine upload floating_point/dist/*
+      # Add --verbose
+      run: python -m twine upload --verbose floating_point/dist/*
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
