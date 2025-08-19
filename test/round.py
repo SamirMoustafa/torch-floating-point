@@ -10,7 +10,6 @@ from torch import (
     float8_e5m2,
     float16,
     float32,
-    float64,
     randn,
 )
 
