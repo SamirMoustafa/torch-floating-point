@@ -14,6 +14,7 @@ from version import __version__
 from setuptools import find_packages, setup
 from torch import cuda
 from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
+
 __HERE__ = path.dirname(path.abspath(__file__))
 
 # Get the long description from the README file
