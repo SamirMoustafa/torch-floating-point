@@ -1,4 +1,13 @@
-# Torch Floating Point
+<div align="center">
+
+<h1> Torch Floating Point</h1>
+<img src="assets/torch-floating-point-logo.png"/>
+
+![python-3.10](https://img.shields.io/badge/python-3.10%2B-blue)
+![pytorch-1.13.1](https://img.shields.io/badge/torch-2.4.1%2B-orange)
+![release-version](https://img.shields.io/badge/release-0.1-green)
+![license](https://img.shields.io/badge/license-GPL%202-red)
+</div>
 
 A PyTorch library for custom floating point quantization with autograd support. This library provides efficient implementations of custom floating point formats with automatic differentiation capabilities.
 
@@ -7,9 +16,7 @@ A PyTorch library for custom floating point quantization with autograd support. 
 - **Custom Floating Point Formats**: Support for arbitrary floating point configurations (sign bits, exponent bits, mantissa bits, bias)
 - **Autograd Support**: Full PyTorch autograd integration for training with quantized weights
 - **CUDA Support**: GPU acceleration for both forward and backward passes
-- **Multiple Precision**: Support for various bit widths (4-bit, 8-bit, 16-bit, 32-bit)
 - **Straight-Through Estimator**: Gradient-friendly quantization for training
-- **Comprehensive Testing**: Extensive test suite covering differentiability and accuracy
 
 ## Installation
 
@@ -25,15 +32,6 @@ pip install torch-floating-point
 git clone https://github.com/SamirMoustafa/torch-floating-point.git
 cd torch-floating-point
 pip install -e .
-```
-
-### Development Installation
-
-```bash
-git clone https://github.com/SamirMoustafa/torch-floating-point.git
-cd torch-floating-point
-pip install -e ".[dev,test]"
-pre-commit install
 ```
 
 ## Quick Start
@@ -63,169 +61,49 @@ print(f"Quantized: {quantized}")
 print(f"Gradients: {x.grad}")
 ```
 
-## Examples
-
-The project includes comprehensive examples in the `examples/` directory:
-
-### Simple Rounding Example (`examples/01_simple_rounding.py`)
-Demonstrates basic rounding functionality with different floating point formats:
-- Compares FP4, FP8, and FP16 precision
-- Shows quantization errors and differences
-- Demonstrates range limitations and edge cases
-- Handles subnormal values
-
-### Gradient Flow Example (`examples/02_gradient_flow.py`)
-Demonstrates gradient flow through quantized operations:
-- Shows Straight-Through Estimator (STE) in action
-- Compares gradient flow across different formats
-- Includes a complete training loop with quantized weights
-- Analyzes gradient patterns and clipping behavior
-
-### Running Examples
-```bash
-# Run individual examples
-python examples/01_simple_rounding.py
-python examples/02_gradient_flow.py
-
-# Run all examples
-python examples/run_all_examples.py
-```
-
-## Usage Examples
-
-### Custom Floating Point Configuration
-
-```python
-from floating_point import FloatingPoint
-
-# 4-bit floating point (1 sign, 2 exponent, 1 mantissa)
-fp4 = FloatingPoint(sign_bits=1, exponent_bits=2, mantissa_bits=1, bias=1, bits=4)
-
-# 8-bit floating point with custom max mantissa
-fp8_custom = FloatingPoint(
-    sign_bits=1, 
-    exponent_bits=4, 
-    mantissa_bits=3, 
-    bias=7, 
-    bits=8,
-    max_mantissa_at_max_exponent=6,  # Custom max mantissa
-    reserved_exponent=False  # No reserved exponent for inf/nan
-)
-
-# 16-bit floating point (standard)
-fp16 = FloatingPoint(sign_bits=1, exponent_bits=5, mantissa_bits=10, bias=15, bits=16)
-```
-
-### Training with Quantized Weights
+## Training with Custom Floating Point Weights
 
 ```python
 import torch
 import torch.nn as nn
 from floating_point import FloatingPoint, Round
 
-class QuantizedLinear(nn.Module):
+class FloatPointLinear(nn.Module):
     def __init__(self, in_features, out_features, fp_config):
         super().__init__()
         self.weight = nn.Parameter(torch.randn(out_features, in_features))
+        self.bias = nn.Parameter(torch.randn(out_features))
         self.rounder = Round(fp_config)
     
     def forward(self, x):
         quantized_weight = self.rounder(self.weight)
-        return torch.nn.functional.linear(x, quantized_weight)
+        return torch.nn.functional.linear(x, quantized_weight, self.bias)
 
-# Define quantization format
+# Define custom floating point format
 fp8 = FloatingPoint(sign_bits=1, exponent_bits=4, mantissa_bits=3, bias=7, bits=8)
 
 # Create model with quantized weights
-model = QuantizedLinear(784, 10, fp8)
-optimizer = torch.optim.Adam(model.parameters())
+model = FloatPointLinear(10, 5, fp8)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+criterion = nn.MSELoss()
+
+# Create simple data
+x = torch.randn(32, 10)
+y = torch.randn(32, 5)
 
 # Training loop
-for epoch in range(10):
-    # ... your training code ...
+for epoch in range(5):
+    optimizer.zero_grad()
+    
+    # Forward pass
+    output = model(x)
+    loss = criterion(output, y)
+    
+    # Backward pass
     loss.backward()
     optimizer.step()
-```
-
-### Direct Function Usage
-
-```python
-import torch
-from floating_point import autograd
-
-# Direct quantization function
-x = torch.randn(100, requires_grad=True)
-quantized = autograd(x, exponent_bits=4, mantissa_bits=3, bias=7)
-
-# Gradients work automatically
-loss = quantized.sum()
-loss.backward()
-```
-
-## Supported Formats
-
-The library supports various floating point formats:
-
-| Format | Sign Bits | Exponent Bits | Mantissa Bits | Bias | Total Bits |
-|--------|-----------|---------------|---------------|------|------------|
-| FP4    | 1         | 2             | 1             | 1    | 4          |
-| FP8    | 1         | 4             | 3             | 7    | 8          |
-| FP16   | 1         | 5             | 10            | 15   | 16         |
-| BF16   | 1         | 8             | 7             | 127  | 16         |
-| FP32   | 1         | 8             | 23            | 127  | 32         |
-
-## Development
-
-### Testing
-
-The project includes two testing approaches:
-
-1. **CI/CD Tests** (GitHub Actions): Fast, lightweight tests that verify core functionality without heavy numerical computations
-2. **Full Test Suite**: Complete test coverage including all numerical precision tests (run locally or via manual workflow trigger)
-
-To run the full test suite locally:
-```bash
-export LD_LIBRARY_PATH=$(python -c "import torch; print(torch.__file__)")/lib:$LD_LIBRARY_PATH
-python -m pytest test/round.py test/data_types.py -v
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-make test
-
-# Run tests with coverage
-make test-cov
-
-# Run specific test file
-python -m pytest test/round.py -v
-```
-
-### Code Quality
-
-```bash
-# Run linting
-make lint
-
-# Format code
-make format
-
-# Run all checks
-make full-check
-```
-
-### Building
-
-```bash
-# Build extension
-python setup.py build_ext --inplace
-
-# Build package
-make build
-
-# Clean build artifacts
-make clean
+    
+    print(f"Epoch {epoch + 1}: Loss = {loss.item():.6f}")
 ```
 
 ## Contributing
@@ -249,19 +127,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this library in your research, please cite:
 
 ```bibtex
-@software{torch_floating_point,
+@software{moustafa2025torchfloatingpoint,
   title={Torch Floating Point: A PyTorch library for custom floating point quantization},
   author={Samir Moustafa},
-  year={2024},
+  year={2025},
   url={https://github.com/SamirMoustafa/torch-floating-point}
 }
 ```
-
-## Acknowledgments
-
-- PyTorch team for the excellent autograd system
-- The PyTorch C++ extension community for guidance on extension development
-- Contributors and users of this library
 
 ## Support
 

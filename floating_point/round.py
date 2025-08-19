@@ -30,8 +30,6 @@ class StraightThroughEstimator(Function):
         grad_input = grad_output.clone()
         grad_input[grad_input < ctx.min].fill_(ctx.min)
         grad_input[grad_input > ctx.max].fill_(ctx.max)
-        # grad_input[logical_or(ctx.max < x, x < ctx.min)] = 0.0
-        # grad_input[logical_and(ctx.min <= x, x <= ctx.max)] = 1.0
         return grad_input, None, None, None
 
 
