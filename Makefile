@@ -1,14 +1,21 @@
-.PHONY: help install install-dev test test-cov lint format clean build publish docs
+.PHONY: help install install-dev test test-cov lint format clean build publish docs env
 
 help: ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+env: ## Create virtual environment from pyproject.toml
+	python -m venv .venv
+	.venv/bin/pip install --upgrade pip setuptools wheel
+	.venv/bin/pip install -e ".[dev]"
+	.venv/bin/pip install pytest parameterized numpy
+
 install: ## Install the package in development mode
 	pip install -e .
 
 install-dev: ## Install the package with development dependencies
-	pip install -e ".[dev,test,docs]"
+	pip install -e ".[dev]"
+	pip install pytest parameterized
 
 test: ## Run tests
 	export LD_LIBRARY_PATH=$$(python -c "import torch; print(torch.__file__)")/lib:$$LD_LIBRARY_PATH && \
@@ -30,7 +37,8 @@ clean: ## Clean build artifacts
 	rm -rf floating_point/build/
 	rm -rf floating_point/*.so
 	rm -rf floating_point/floating_point.egg-info/
-	find . -type d -name __pycache__ -delete
+	rm -rf .venv/
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
 
@@ -39,6 +47,7 @@ build: ## Build the package
 	python -m build
 
 build-wheel: ## Build wheel only
+	cd floating_point && python setup.py build_ext --inplace
 	python -m build --wheel
 
 build-sdist: ## Build source distribution only
@@ -80,7 +89,7 @@ check-deps: ## Check for outdated dependencies
 update-deps: ## Update dependencies
 	pip install --upgrade pip setuptools wheel
 	pip install --upgrade -e ".[dev]"
-	pip install --upgrade pytest parameterized
+	pip install --upgrade pytest parameterized numpy
 
 
 

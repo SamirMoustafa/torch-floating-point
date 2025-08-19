@@ -24,5 +24,4 @@ RUN pip install -e floating_point
 
 # Default command - just provide a shell for manual execution
 CMD ["/bin/bash"]
-
 RUN pytest --log-cli-level=DEBUG --capture=tee-sys test/round.py test/data_types.py -v

@@ -65,15 +65,15 @@ jobs:
     - name: Check if version exists on PyPI
       id: check_version
       run: |
-        PACKAGE_NAME=$(python floating_point/setup.py --name)
-        CURRENT_VERSION=$(python floating_point/setup.py --version)
+        PACKAGE_NAME="torch-floating-point"
+        CURRENT_VERSION="0.0.1"
         VERSION_EXISTS=$(pip index versions $PACKAGE_NAME | grep $CURRENT_VERSION || true)
         if [ -z "$VERSION_EXISTS" ]; then
           echo "Version does not exist on PyPI, proceeding with upload."
-          echo "::set-output name=exists::false"
+          echo "exists=false" >> $GITHUB_OUTPUT
         else
           echo "Version already exists on PyPI, skipping upload."
-          echo "::set-output name=exists::true"
+          echo "exists=true" >> $GITHUB_OUTPUT
         fi
     - name: Upload to PyPI
       if: steps.check_version.outputs.exists == 'false'
