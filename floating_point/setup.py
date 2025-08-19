@@ -46,14 +46,16 @@ extra_link_args = ["-fopenmp"] if platform.system() != "Windows" else []
 sources = [path.join(__HERE__, "float_round.cpp")]
 define_macros = []
 
+
 # Custom wheel builder to fix platform tag
 class CustomWheel(bdist_wheel):
     def get_tag(self):
         python, abi, plat = bdist_wheel.get_tag(self)
         # Use manylinux_2_28_x86_64 for Linux wheels
-        if plat.startswith('linux'):
-            plat = 'manylinux_2_28_x86_64'
+        if plat.startswith("linux"):
+            plat = "manylinux_2_28_x86_64"
         return python, abi, plat
+
 
 # Conditionally add CUDA support
 if cuda.is_available():
