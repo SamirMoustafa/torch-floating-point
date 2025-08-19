@@ -63,6 +63,34 @@ print(f"Quantized: {quantized}")
 print(f"Gradients: {x.grad}")
 ```
 
+## Examples
+
+The project includes comprehensive examples in the `examples/` directory:
+
+### Simple Rounding Example (`examples/01_simple_rounding.py`)
+Demonstrates basic rounding functionality with different floating point formats:
+- Compares FP4, FP8, and FP16 precision
+- Shows quantization errors and differences
+- Demonstrates range limitations and edge cases
+- Handles subnormal values
+
+### Gradient Flow Example (`examples/02_gradient_flow.py`)
+Demonstrates gradient flow through quantized operations:
+- Shows Straight-Through Estimator (STE) in action
+- Compares gradient flow across different formats
+- Includes a complete training loop with quantized weights
+- Analyzes gradient patterns and clipping behavior
+
+### Running Examples
+```bash
+# Run individual examples
+python examples/01_simple_rounding.py
+python examples/02_gradient_flow.py
+
+# Run all examples
+python examples/run_all_examples.py
+```
+
 ## Usage Examples
 
 ### Custom Floating Point Configuration

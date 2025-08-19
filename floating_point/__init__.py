@@ -11,5 +11,7 @@ except ImportError:
     from version import __version__
 
 from .floating_point import autograd
+from .data_types import FloatingPoint
+from .round import Round
 
-__all__ = ["__version__", "autograd"]
+__all__ = ["__version__", "autograd", "FloatingPoint", "Round"]
