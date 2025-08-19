@@ -9,4 +9,4 @@ from version import __version__
 
 from .floating_point import autograd
 
-__all__ = ["autograd", "__version__"]
+__all__ = ["__version__", "autograd"]
