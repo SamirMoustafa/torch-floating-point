@@ -1,11 +1,14 @@
 import sys
 from pathlib import Path
 
-# Add the project root to the path to import version
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from version import __version__
+# Try to import version from the current directory first (for Docker builds)
+try:
+    from version import __version__
+except ImportError:
+    # If that fails, try to import from the project root (for local development)
+    project_root = Path(__file__).parent.parent
+    sys.path.insert(0, str(project_root))
+    from version import __version__
 
 from .floating_point import autograd
 

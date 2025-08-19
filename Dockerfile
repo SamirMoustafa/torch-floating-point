@@ -10,6 +10,7 @@ WORKDIR /app
 # Copy only necessary files
 COPY pyproject.toml ./
 COPY README.md ./
+COPY version.py ./
 COPY floating_point/ ./floating_point/
 COPY test/ ./test/
 
