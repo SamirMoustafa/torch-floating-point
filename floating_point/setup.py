@@ -21,8 +21,14 @@ from wheel.bdist_wheel import bdist_wheel
 __HERE__ = path.dirname(path.abspath(__file__))
 
 # Get the long description from the README file
-with open(path.join(path.abspath(path.dirname(__file__)), "..", "README.md"), encoding="utf-8") as f:
-    long_description = f.read()
+try:
+    # Try to read from the project root (for local development)
+    readme_path = path.join(path.abspath(path.dirname(__file__)), "..", "README.md")
+    with open(readme_path, encoding="utf-8") as f:
+        long_description = f.read()
+except FileNotFoundError:
+    # Fallback for PyPI installation where README.md might not be available
+    long_description = "A PyTorch library for custom floating point quantization with autograd support."
 
 # Automatically detect and set CUDA architectures
 if cuda.is_available() and "TORCH_CUDA_ARCH_LIST" not in environ:
