@@ -80,7 +80,7 @@ setup(
     author="Samir Moustafa",
     author_email="samir.moustafa.97@gmail.com",
     url="https://github.com/SamirMoustafa/torch-floating-point",
-    install_requires=["torch>=2.4.0,<2.6.0"],
+    install_requires=["torch>=2.4.0"],
     packages=find_packages(),
     ext_modules=[
         extension_class(
