@@ -1,5 +1,5 @@
 # Use PyTorch base image with CUDA support
-FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-devel
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
