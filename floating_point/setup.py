@@ -57,7 +57,7 @@ else:
     extension_class = CppExtension
 
 setup(
-    name="floating_point",
+    name="torch-floating-point",
     version=__version__,
     description="Floating Point Quantization Library",
     long_description=long_description,
