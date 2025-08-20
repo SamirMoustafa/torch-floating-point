@@ -2,7 +2,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
-#include <ATen/cuda/CUDAContext.h>
+#include <ATen/cuda/CUDAContext.h> // For getCurrentCUDAStream
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 

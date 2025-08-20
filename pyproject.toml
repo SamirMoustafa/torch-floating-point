@@ -81,6 +81,7 @@ lint.select = [
 lint.ignore = [
     "PLR0911",  # pylint: Too many return statements
     "PLR0913",  # pylint: Too many arguments
+    "PLR2004",  # pylint: Unused variable
     "E402", # pycodestyle: Module level import not at top of file
 ]
 
