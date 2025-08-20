@@ -3,7 +3,7 @@ from typing import Tuple
 from torch import Tensor
 from torch.autograd import Function
 
-from floating_point import autograd
+from floating_point import cpp_round
 from floating_point.data_types import FloatingPoint
 
 
@@ -13,7 +13,7 @@ class StraightThroughEstimator(Function):
         # Avoid using clamp here, as it may break the gradient flow
         x[x < min].fill_(min)
         x[x > max].fill_(max)
-        rounded = autograd(x, dtype.exponent_bits, dtype.mantissa_bits, dtype.bias)
+        rounded = cpp_round(x, dtype.exponent_bits, dtype.mantissa_bits, dtype.bias)
         ctx.min, ctx.max = min, max
         ctx.save_for_backward(x, rounded)
         return rounded

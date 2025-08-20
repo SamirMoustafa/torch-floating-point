@@ -76,12 +76,12 @@ torch::Tensor float_round_inplace(torch::Tensor input, int exponent_bits, int ma
     }
 }
 
-// Simple autograd wrapper that just calls the inplace function
-torch::Tensor float_round_autograd(torch::Tensor input, int exponent_bits, int mantissa_bits, int bias) {
+// C++ function for floating point rounding
+torch::Tensor float_round(torch::Tensor input, int exponent_bits, int mantissa_bits, int bias) {
     return float_round_inplace(input.clone(), exponent_bits, mantissa_bits, bias);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("inplace", &float_round_inplace, "Float rounding operation (CUDA/CPU, inplace)");
-    m.def("autograd", &float_round_autograd, "Float rounding operation with autograd support");
+    m.def("round", &float_round, "Float rounding operation (CUDA/CPU, non-inplace)");
 }
