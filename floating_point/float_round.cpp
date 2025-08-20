@@ -76,35 +76,9 @@ torch::Tensor float_round_inplace(torch::Tensor input, int exponent_bits, int ma
     }
 }
 
-// Autograd function definition
-class RoundFunction : public torch::autograd::Function<RoundFunction> {
-public:
-    static torch::Tensor forward(torch::autograd::AutogradContext *ctx,
-                                 torch::Tensor input,
-                                 int exponent_bits,
-                                 int mantissa_bits,
-                                 int bias) {
-        ctx->saved_data["exponent_bits"] = exponent_bits;
-        ctx->saved_data["mantissa_bits"] = mantissa_bits;
-        ctx->saved_data["bias"] = bias;
-
-        auto output = float_round_inplace(input.clone(), exponent_bits, mantissa_bits, bias);
-        return output;
-    }
-
-    static torch::autograd::tensor_list backward(torch::autograd::AutogradContext *ctx,
-                                                 torch::autograd::tensor_list grad_outputs) {
-        auto grad_output = float_round_inplace(grad_outputs[0].contiguous().clone(),
-                                                ctx->saved_data["exponent_bits"].toInt(),
-                                                ctx->saved_data["mantissa_bits"].toInt(),
-                                                ctx->saved_data["bias"].toInt());
-        return {grad_output, torch::Tensor(), torch::Tensor(), torch::Tensor()};
-    }
-};
-
-// Autograd-enabled wrapper
+// Simple autograd wrapper that just calls the inplace function
 torch::Tensor float_round_autograd(torch::Tensor input, int exponent_bits, int mantissa_bits, int bias) {
-    return RoundFunction::apply(input, exponent_bits, mantissa_bits, bias);
+    return float_round_inplace(input.clone(), exponent_bits, mantissa_bits, bias);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

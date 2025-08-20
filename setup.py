@@ -3,13 +3,13 @@
 Setup script for torch-floating-point
 """
 
-# Import version from the project root
 import os
 import platform
 import sys
 from os import environ, path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import torch
 from setuptools import find_packages, setup
 from torch import cuda
 from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
@@ -19,12 +19,8 @@ from version import __version__
 
 __HERE__ = path.dirname(path.abspath(__file__))
 
-# Get the long description from the README file
-try:
-    with open(path.join(__HERE__, "README.md"), encoding="utf-8") as f:
-        long_description = f.read()
-except FileNotFoundError:
-    long_description = "A PyTorch library for custom floating point quantization with autograd support."
+with open(path.join(__HERE__, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
 
 # Automatically detect and set CUDA architectures
 if cuda.is_available() and "TORCH_CUDA_ARCH_LIST" not in environ:
@@ -42,8 +38,20 @@ if cuda.is_available() and "TORCH_CUDA_ARCH_LIST" not in environ:
     environ["TORCH_CUDA_ARCH_LIST"] = ";".join(arch_list)
     print(f"Setting TORCH_CUDA_ARCH_LIST={environ['TORCH_CUDA_ARCH_LIST']}")
 
-extra_compile_args = {"cxx": ["-fopenmp" if platform.system() != "Windows" else "/openmp"]}
+# Force the ABI to match actual PyTorch libraries (always use legacy ABI for compatibility)
+extra_compile_args = {
+    "cxx": ["-fopenmp", "-D_GLIBCXX_USE_CXX11_ABI=0"]
+    if platform.system() != "Windows"
+    else ["/openmp", "-D_GLIBCXX_USE_CXX11_ABI=0"]
+}
 extra_link_args = ["-fopenmp"] if platform.system() != "Windows" else []
+
+# Set PyTorch library path for runtime linking
+torch_lib_path = os.path.join(os.path.dirname(torch.__file__), "lib")
+if "LD_LIBRARY_PATH" not in environ:
+    environ["LD_LIBRARY_PATH"] = torch_lib_path
+else:
+    environ["LD_LIBRARY_PATH"] = f"{torch_lib_path}:{environ['LD_LIBRARY_PATH']}"
 
 # Base sources
 sources = ["floating_point/float_round.cpp"]
@@ -66,7 +74,7 @@ if cuda.is_available():
     extension_class = CUDAExtension
     sources.append("floating_point/float_round_cuda.cu")
     define_macros.append(("WITH_CUDA", None))
-    extra_compile_args["nvcc"] = ["-O2"]
+    extra_compile_args["nvcc"] = ["-O2", "-D_GLIBCXX_USE_CXX11_ABI=0"]
 else:
     print("No CUDA detected, building without CUDA support.")
     extension_class = CppExtension
