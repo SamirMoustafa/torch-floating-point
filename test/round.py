@@ -13,7 +13,7 @@ from torch import (
     randn,
 )
 
-from floating_point import autograd
+from floating_point import round
 from floating_point.data_types import FloatingPoint
 from floating_point.round import Round
 
@@ -141,7 +141,7 @@ class TestFloatingPointRounding(unittest.TestCase):
         a = -3e37 if a < -3e37 else a  # Prevent overflow
         b = 3e37 if b > 3e37 else b  # Prevent overflow
         x = FloatTensor(100).uniform_(a, b).clamp(min=a, max=b).to(device=device)
-        quantized_x = autograd(x, fp.exponent_bits, fp.mantissa_bits, fp.bias)
+        quantized_x = round(x, fp.exponent_bits, fp.mantissa_bits, fp.bias)
         torch_rounded_x = x.to(dtype).float()
         l1_error = (quantized_x - torch_rounded_x).abs().sum().item()
         self.assertTrue(l1_error == 0.0, f"Rounding mismatch in {l1_error}, for {name} ({dtype}) on {device}.")
