@@ -43,20 +43,10 @@ jobs:
           --cache-to type=local,dest=/tmp/.buildx-cache,mode=max \
           --tag torch-floating-point:latest \
           --file Dockerfile \
-          --target runtime \
-          .
-        
-        # Build test image
-        docker buildx build \
-          --platform linux/amd64 \
-          --cache-from type=local,src=/tmp/.buildx-cache \
-          --cache-to type=local,dest=/tmp/.buildx-cache,mode=max \
-          --tag torch-floating-point-test:latest \
-          --file Dockerfile.test \
           .
         
         # Clean up
-        docker rmi torch-floating-point:latest torch-floating-point-test:latest
+        docker rmi torch-floating-point:latest
 
   lint:
     runs-on: ubuntu-latest

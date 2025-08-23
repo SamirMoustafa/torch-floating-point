@@ -54,5 +54,8 @@ COPY --from=builder /app/floating_point/ ./floating_point/
 COPY --from=builder /app/build/ ./build/
 COPY --from=builder /app/test/ ./test/
 
+# Run tests to verify everything works (can be skipped with --target runtime)
+RUN pytest --log-cli-level=DEBUG --capture=tee-sys test/round.py test/data_types.py -vvv -s
+
 # Default command - just provide a shell for manual execution
 CMD ["/bin/bash"]
