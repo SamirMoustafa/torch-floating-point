@@ -43,11 +43,10 @@ jobs:
           --cache-to type=local,dest=/tmp/.buildx-cache,mode=max \
           --tag torch-floating-point:latest \
           --file Dockerfile \
-          --load \
           .
         
-        # Clean up
-        docker rmi torch-floating-point:latest
+        # Clean up any temporary files to free disk space
+        docker system prune -f
 
   lint:
     runs-on: ubuntu-latest

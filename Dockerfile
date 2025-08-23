@@ -3,7 +3,7 @@
 # docker run --rm torch-floating-point-test python -m pytest test/round.py test/data_types.py -v
 
 # Base stage with PyTorch and system dependencies
-FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime as base
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime AS base
 
 # Set environment variables for faster builds
 ENV PYTHONUNBUFFERED=1
