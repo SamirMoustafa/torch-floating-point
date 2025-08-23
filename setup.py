@@ -20,6 +20,11 @@ from version import __version__
 
 __HERE__ = path.dirname(path.abspath(__file__))
 
+# Constants for compute capability thresholds
+CUDA_AMPERE_AND_NEWER = 8
+CUDA_VOLTA_AND_TURING = 7
+MIN_MEMORY_GB_FOR_AGGRESSIVE_OPT = 16
+
 with open(path.join(__HERE__, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
@@ -102,7 +107,7 @@ def detect_cuda_flags():
             # Note: PTX forward compatibility is handled by TORCH_CUDA_ARCH_LIST
 
             # Add optimization flags based on compute capability
-            if capability[0] >= 8:  # Ampere and newer
+            if capability[0] >= CUDA_AMPERE_AND_NEWER:  # Ampere and newer
                 flags.extend(
                     [
                         "-O3",  # Maximum optimization
@@ -112,7 +117,7 @@ def detect_cuda_flags():
                         "--expt-extended-lambda",
                     ]
                 )
-            elif capability[0] >= 7:  # Volta and Turing
+            elif capability[0] >= CUDA_VOLTA_AND_TURING:  # Volta and Turing
                 flags.extend(["-O3", "-use_fast_math", "-maxrregcount=32"])
             else:  # Older architectures
                 flags.extend(["-O2", "-use_fast_math"])
@@ -141,13 +146,13 @@ def detect_system_flags():
                             mem_gb = mem_kb / (1024 * 1024)
 
                             # If we have enough memory, we can be more aggressive
-                            if mem_gb >= 16:
+                            if mem_gb >= MIN_MEMORY_GB_FOR_AGGRESSIVE_OPT:
                                 flags.append("-DNDEBUG")  # Disable debug assertions
                                 print(
                                     f"High memory system detected ({mem_gb:.1f}GB), enabling aggressive optimizations"
                                 )
                             break
-            except:
+            except (OSError, ValueError):
                 pass
 
         # Check number of CPU cores for parallel compilation
@@ -163,7 +168,7 @@ def detect_system_flags():
                 environ.setdefault("CC", "ccache gcc")
                 environ.setdefault("CXX", "ccache g++")
                 print("ccache detected and enabled for faster rebuilds")
-        except:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
             pass
 
     except Exception as e:
