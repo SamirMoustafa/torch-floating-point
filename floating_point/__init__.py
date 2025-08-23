@@ -8,6 +8,7 @@ def round(input, exponent_bits, mantissa_bits, bias):
     dtype = FloatingPoint(1, exponent_bits, mantissa_bits, bias, exponent_bits + mantissa_bits + 1)
     return StraightThroughEstimator.apply(input, dtype, dtype.minimum, dtype.maximum)
 
+
 inplace = cpp_inplace
 
 __all__ = ["FloatingPoint", "Round", "inplace", "round"]

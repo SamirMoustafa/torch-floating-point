@@ -76,8 +76,10 @@ class FloatingPoint:
     def generate_all_custom_fp_values(self):
         bit_combinations = self.generate_bit_combinations()
         values = [self.bit_pattern_to_custom_fp(b) for b in bit_combinations]
+
         def sort_func(x):
             return (math.inf if math.isnan(x) else math.copysign(1, x), math.inf if math.isnan(x) else x)
+
         values = sorted(values, key=sort_func)
         assert len(values) == 2**self.bits
         return values
