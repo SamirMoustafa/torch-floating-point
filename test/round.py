@@ -2,7 +2,7 @@ import unittest
 
 import torch
 from parameterized import parameterized
-from torch import FloatTensor, bfloat16, finfo, float8_e4m3fn, float8_e5m2, float16, float32, randn
+from torch import FloatTensor, bfloat16, finfo, float8_e4m3fn, float8_e5m2, float16, randn
 
 from floating_point import round
 from floating_point.data_types import FloatingPoint
