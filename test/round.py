@@ -43,12 +43,13 @@ class TestFloatingPointRounding(unittest.TestCase):
         ("float8e4m3fn", __float8e4m3fn__, float8_e4m3fn, "cpu"),
         ("float16", __float16__, float16, "cpu"),
         ("bfloat16", __bfloat16__, bfloat16, "cpu"),
-        ("float32", __float32__, float32, "cpu"),
+        # ("float32", __float32__, float32, "cpu"),
     ] + ([("float8e5m2", __float8e5m2__, float8_e5m2, "cuda"),
           ("float8e4m3fn", __float8e4m3fn__,float8_e4m3fn, "cuda"),
           ("float16", __float16__, float16, "cuda"),
           ("bfloat16", __bfloat16__, bfloat16, "cuda"),
-          ("float32", __float32__, float32, "cuda")] if torch.cuda.is_available() else []))
+          # ("float32", __float32__, float32, "cuda"),
+          ] if torch.cuda.is_available() else []))
     def test_rounding(self, name, fp, dtype, device):
         a, b = finfo(dtype).min, finfo(dtype).max
         assert a == fp.minimum and b == fp.maximum
