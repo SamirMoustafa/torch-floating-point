@@ -31,8 +31,8 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 FROM base as builder
 WORKDIR /app
 
-# Copy dependency files first (change less frequently)
-COPY pyproject.toml setup.py ./
+# Copy dependency files first
+COPY pyproject.toml setup.py version.py README.md ./
 
 # Copy source code (changes most frequently)
 COPY floating_point/ ./floating_point/
