@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir pytest parameterized numpy ninja
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 # Build stage - copy dependency files first for better caching
-FROM base as builder
+FROM base AS builder
 WORKDIR /app
 
 # Copy dependency files first
@@ -46,7 +46,7 @@ RUN python setup.py clean --all
 RUN python setup.py build_ext --inplace
 
 # Runtime stage - minimal image with just the built extension
-FROM base as runtime
+FROM base AS runtime
 WORKDIR /app
 
 # Copy only the built extension and necessary files

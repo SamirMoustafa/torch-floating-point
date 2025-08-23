@@ -43,6 +43,7 @@ jobs:
           --cache-to type=local,dest=/tmp/.buildx-cache,mode=max \
           --tag torch-floating-point:latest \
           --file Dockerfile \
+          --load \
           .
         
         # Clean up
