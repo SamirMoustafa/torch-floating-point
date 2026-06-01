@@ -19,7 +19,7 @@ class StraightThroughEstimator(Function):
 
     @staticmethod
     def backward(ctx: Function, grad_output: Tensor) -> Tuple[Tensor, None, None, None]:
-        x, rounded = ctx.saved_tensors
+        x, _ = ctx.saved_tensors
         if x.grad_fn.__class__.__name__ == ctx.__class__.__name__:
             raise RuntimeError("Double quantization detected.")
         grad_input = grad_output.clone()
