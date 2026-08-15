@@ -38,8 +38,8 @@ COPY pyproject.toml setup.py version.py README.md ./
 COPY floating_point/ ./floating_point/
 COPY test/ ./test/
 
-# Install the package in development mode
-RUN pip install --no-cache-dir -e .
+# Install the package in development mode (reuse image Torch; avoid isolated re-download)
+RUN pip install --no-cache-dir --no-build-isolation -e .
 
 # Force rebuild of the extension to ensure compatibility
 RUN python setup.py clean --all
