@@ -34,6 +34,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildx-
 
+    - name: Free disk space
+      run: |
+        docker system prune -af
+        df -h
+
     - name: Build and test with Docker
       run: |
         # Build with BuildKit and caching
