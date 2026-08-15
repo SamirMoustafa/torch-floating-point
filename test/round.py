@@ -86,5 +86,63 @@ class TestE4M3FNRoundSaturation(unittest.TestCase):
         self.assertFalse(math.isnan(float(y[0].cpu())))
 
 
+class TestE2M1RoundCodebook(unittest.TestCase):
+    """Issue #7: Round must land only on the FloatingPoint codebook (no fake 0.75)."""
+
+    e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else [])
+    )
+    def test_0_7_rounds_to_0_5(self, device):
+        rounder = Round(self.e2m1)
+        y = rounder(torch.tensor([0.7], dtype=torch.float32, device=device))
+        self.assertEqual(float(y[0].cpu()), 0.5)
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else [])
+    )
+    def test_midpoints_ties_to_even(self, device):
+        # NVIDIA __nv_fp4_e2m1: 0.25 → 0, 0.75 → 1
+        rounder = Round(self.e2m1)
+        x = torch.tensor([0.25, 0.75, -0.25, -0.75], dtype=torch.float32, device=device)
+        y = rounder(x).cpu().tolist()
+        self.assertEqual(y, [0.0, 1.0, -0.0, -1.0])
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else [])
+    )
+    def test_dense_outputs_in_codebook(self, device):
+        rounder = Round(self.e2m1)
+        codebook = set(self.e2m1.values)
+        x = torch.linspace(-7.0, 7.0, 14001, dtype=torch.float32, device=device)
+        y = rounder(x).cpu()
+        unique = {float(v) for v in y.unique()}
+        self.assertNotIn(0.75, unique)
+        self.assertNotIn(-0.75, unique)
+        illegal = unique - codebook
+        self.assertEqual(illegal, set(), f"Illegal Round outputs: {sorted(illegal)}")
+
+
+class TestE4M3FNSubnormalCodebook(unittest.TestCase):
+    """Same class of bug: no invented values in the subnormal binade."""
+
+    e4m3 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else [])
+    )
+    def test_subnormal_range_outputs_in_codebook(self, device):
+        rounder = Round(self.e4m3)
+        codebook = set(self.e4m3.values)
+        # Below min normal 2^(1-bias) = 2^-6 ≈ 0.015625
+        x = torch.linspace(-0.03, 0.03, 6001, dtype=torch.float32, device=device)
+        y = rounder(x).cpu()
+        unique = {float(v) for v in y.unique()}
+        illegal = unique - codebook
+        self.assertEqual(illegal, set(), f"Illegal Round outputs: {sorted(illegal)}")
+        self.assertNotIn(0.0087890625, unique)
+
+
 if __name__ == "__main__":
     unittest.main()
