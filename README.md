@@ -68,16 +68,18 @@ import torch
 import torch.nn as nn
 from floating_point import FloatingPoint, Round
 
+
 class FloatPointLinear(nn.Module):
     def __init__(self, in_features, out_features, fp_config):
         super().__init__()
         self.weight = nn.Parameter(torch.randn(out_features, in_features))
         self.bias = nn.Parameter(torch.randn(out_features))
         self.rounder = Round(fp_config)
-    
+
     def forward(self, x):
         quantized_weight = self.rounder(self.weight)
         return torch.nn.functional.linear(x, quantized_weight, self.bias)
+
 
 # Define custom floating point format
 fp8 = FloatingPoint(sign_bits=1, exponent_bits=4, mantissa_bits=3, bias=7, bits=8)
@@ -94,15 +96,15 @@ y = torch.randn(32, 5)
 # Training loop
 for epoch in range(5):
     optimizer.zero_grad()
-    
+
     # Forward pass
     output = model(x)
     loss = criterion(output, y)
-    
+
     # Backward pass
     loss.backward()
     optimizer.step()
-    
+
     print(f"Epoch {epoch + 1}: Loss = {loss.item():.6f}")
 ```
 
