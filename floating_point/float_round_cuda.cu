@@ -18,17 +18,33 @@ inline void gpuCheck(cudaError_t code, const char *file, int line) {
 __device__ __forceinline__ float float_round_one(
     float x_val,
     float max_exp,
-    float min_exp,
+    float min_normal_exp,
+    float subnormal_scale,
     int mantissa_upper_bound,
     int max_mant_at_max,
     float mantissa_scale,
-    float inv_mantissa_scale) {
+    float inv_mantissa_scale,
+    int has_subnormals) {
     if (x_val == 0.0f) return x_val;
 
     const float s = copysignf(1.0f, x_val);
     const float x_abs = fabsf(x_val);
     const float exponent_floor = floorf(log2f(x_abs));
-    float exponent = fmaxf(fminf(exponent_floor, max_exp), min_exp);
+
+    if (has_subnormals && exponent_floor < min_normal_exp) {
+        // Subnormal: value = (mant / 2^m) * 2^(1-bias); __float2int_rn is ties-to-even
+        const float mant_unrounded = (x_abs / subnormal_scale) * mantissa_scale;
+        int mant = __float2int_rn(mant_unrounded);
+        if (mant <= 0) {
+            return s * 0.0f;
+        }
+        if (mant >= mantissa_upper_bound) {
+            return s * subnormal_scale;
+        }
+        return s * (static_cast<float>(mant) * inv_mantissa_scale) * subnormal_scale;
+    }
+
+    float exponent = fmaxf(fminf(exponent_floor, max_exp), min_normal_exp);
     float exp2_val = exp2f(exponent);
 
     float scaled = fmaf(x_abs, __frcp_rn(exp2_val), 0.0f);
@@ -46,10 +62,12 @@ __device__ __forceinline__ float float_round_one(
         if (at_max_exp) {
             final_mantissa = max_mant_at_max;
         } else {
-            const float exponent_overflow = fmaxf(fminf(exponent + 1.0f, max_exp), min_exp);
+            const float exponent_overflow = fmaxf(fminf(exponent + 1.0f, max_exp), min_normal_exp);
             final_exp2 = exp2f(exponent_overflow);
             final_mantissa = 0;
         }
+    } else if (mantissa < 0) {
+        final_mantissa = 0;
     }
 
     const float fraction = static_cast<float>(final_mantissa) * inv_mantissa_scale;
@@ -60,18 +78,21 @@ __device__ __forceinline__ float float_round_one(
 __global__ void float_round_kernel_inplace(float* input,
                                            int N,
                                            float max_exp,
-                                           float min_exp,
+                                           float min_normal_exp,
+                                           float subnormal_scale,
                                            int mantissa_upper_bound,
                                            int max_mant_at_max,
                                            float mantissa_scale,
-                                           float inv_mantissa_scale) {
+                                           float inv_mantissa_scale,
+                                           int has_subnormals) {
     const int tid = blockIdx.x * blockDim.x + threadIdx.x;
     const int stride = blockDim.x * gridDim.x;
 
     for (int idx = tid; idx < N; idx += stride) {
         input[idx] = float_round_one(
-            input[idx], max_exp, min_exp, mantissa_upper_bound, max_mant_at_max,
-            mantissa_scale, inv_mantissa_scale);
+            input[idx], max_exp, min_normal_exp, subnormal_scale,
+            mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale,
+            has_subnormals);
     }
 }
 
@@ -79,11 +100,13 @@ __global__ void float_round_kernel_inplace(float* input,
 __global__ void float_round_kernel_vectorized(float4* input_vec,
                                              int N_vec,
                                              float max_exp,
-                                             float min_exp,
+                                             float min_normal_exp,
+                                             float subnormal_scale,
                                              int mantissa_upper_bound,
                                              int max_mant_at_max,
                                              float mantissa_scale,
-                                             float inv_mantissa_scale) {
+                                             float inv_mantissa_scale,
+                                             int has_subnormals) {
     const int tid = blockIdx.x * blockDim.x + threadIdx.x;
     const int stride = blockDim.x * gridDim.x;
 
@@ -94,8 +117,9 @@ __global__ void float_round_kernel_vectorized(float4* input_vec,
         for (int i = 0; i < 4; ++i) {
             float* x_ptr = reinterpret_cast<float*>(&vec) + i;
             *x_ptr = float_round_one(
-                *x_ptr, max_exp, min_exp, mantissa_upper_bound, max_mant_at_max,
-                mantissa_scale, inv_mantissa_scale);
+                *x_ptr, max_exp, min_normal_exp, subnormal_scale,
+                mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale,
+                has_subnormals);
         }
 
         input_vec[idx] = vec;
@@ -106,11 +130,13 @@ __global__ void float_round_kernel_vectorized(float4* input_vec,
 __global__ void float_round_kernel_shared(float* input,
                                          int N,
                                          float max_exp,
-                                         float min_exp,
+                                         float min_normal_exp,
+                                         float subnormal_scale,
                                          int mantissa_upper_bound,
                                          int max_mant_at_max,
                                          float mantissa_scale,
-                                         float inv_mantissa_scale) {
+                                         float inv_mantissa_scale,
+                                         int has_subnormals) {
     __shared__ float shared_data[1024];
 
     const int tid = threadIdx.x;
@@ -128,8 +154,9 @@ __global__ void float_round_kernel_shared(float* input,
 
         if (idx < N) {
             shared_data[tid] = float_round_one(
-                shared_data[tid], max_exp, min_exp, mantissa_upper_bound, max_mant_at_max,
-                mantissa_scale, inv_mantissa_scale);
+                shared_data[tid], max_exp, min_normal_exp, subnormal_scale,
+                mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale,
+                has_subnormals);
         }
 
         __syncthreads();
@@ -155,11 +182,13 @@ torch::Tensor float_round_cuda_inplace(
 
     int max_stored_exp = reserved_exponent ? ((1 << exponent_bits) - 2) : ((1 << exponent_bits) - 1);
     float max_exp = static_cast<float>(max_stored_exp - bias);
-    float min_exp = static_cast<float>(-bias);
+    float min_normal_exp = (mantissa_bits == 0) ? static_cast<float>(-bias) : static_cast<float>(1 - bias);
+    float subnormal_scale = exp2f(static_cast<float>(1 - bias));
     int mantissa_upper_bound = 1 << mantissa_bits;
     int max_mant_at_max = max_mantissa_at_max_exponent;
-    float mantissa_scale = static_cast<float>(mantissa_upper_bound);
+    float mantissa_scale = static_cast<float>(mantissa_upper_bound > 0 ? mantissa_upper_bound : 1);
     float inv_mantissa_scale = 1.0f / mantissa_scale;
+    int has_subnormals = mantissa_bits > 0 ? 1 : 0;
 
     float* input_ptr = input.data_ptr<float>();
 
@@ -181,19 +210,22 @@ torch::Tensor float_round_cuda_inplace(
             float4* input_vec = reinterpret_cast<float4*>(input_ptr);
             int N_vec = numel / 4;
             float_round_kernel_vectorized<<<blocks, threads, 0, stream>>>(
-                input_vec, N_vec, max_exp, min_exp,
-                mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale
+                input_vec, N_vec, max_exp, min_normal_exp, subnormal_scale,
+                mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale,
+                has_subnormals
             );
         } else {
             float_round_kernel_shared<<<blocks, threads, 0, stream>>>(
-                input_ptr, numel, max_exp, min_exp,
-                mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale
+                input_ptr, numel, max_exp, min_normal_exp, subnormal_scale,
+                mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale,
+                has_subnormals
             );
         }
     } else {
         float_round_kernel_inplace<<<blocks, threads, 0, stream>>>(
-            input_ptr, numel, max_exp, min_exp,
-            mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale
+            input_ptr, numel, max_exp, min_normal_exp, subnormal_scale,
+            mantissa_upper_bound, max_mant_at_max, mantissa_scale, inv_mantissa_scale,
+            has_subnormals
         );
     }
 
