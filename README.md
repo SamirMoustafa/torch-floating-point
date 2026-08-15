@@ -110,7 +110,7 @@ for epoch in range(5):
 
 ## NVIDIA-compatible presets
 
-These `FloatingPoint` configs match NVIDIA CUDA FP4/FP8 codec decode (element-wise only; not block-scaled MX `x = e * s_block`):
+These `FloatingPoint` configs match NVIDIA CUDA FP4/FP8 codec decode (element-wise). For block-scaled NVFP4 / MX (`x = e * s_block`), use `BlockRound` below.
 
 ```python
 from floating_point import FloatingPoint
@@ -134,6 +134,31 @@ fp8_e5m2 = FloatingPoint(sign_bits=1, exponent_bits=5, mantissa_bits=2, bias=15,
 
 # __nv_fp8_e8m0 (UE8M0 MX scales): codes 0..254 → 2^(E-127); 255 → NaN
 fp8_e8m0 = FloatingPoint(sign_bits=0, exponent_bits=8, mantissa_bits=0, bias=127, bits=8, reserved_exponent=True)
+```
+
+### Block-scaled Round (NVFP4 / MXFP8)
+
+Shared per-block scale: `y_i = Round_elem(x_i / s) * s`. Absmax mode detaches `s` (CUDA-style); pass `scales=` for learnable QAT scales with gradients.
+
+UE8M0 **block** scale encode uses CUDA-style round-up to the next power of two. Element-wise `Round(fp8_e8m0)` remains nearest.
+
+```python
+from floating_point import BlockRound, FloatingPoint, block_round, sample_block_scaled
+
+fp4_e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
+fp8_e4m3fn = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
+fp8_e8m0 = FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)
+
+# NVFP4: E2M1 elements + E4M3 scales, block_size=16
+nvfp4 = BlockRound(fp4_e2m1, fp8_e4m3fn, M=6, block_size=16)
+y = nvfp4(x)  # absmax scales, STE on x only
+y = nvfp4(x, scales=learnable_s)  # grad into scales
+
+# MXFP8: E4M3 elements + UE8M0 scales, block_size=32
+mxfp8 = BlockRound(fp8_e4m3fn, fp8_e8m0, M=448, block_size=32)
+
+# Recoverable codebook samples (absmax round-trip ≈ identity)
+x = sample_block_scaled((8, 64), fp4_e2m1, fp8_e4m3fn, M=6, block_size=16)
 ```
 
 ## Contributing
