@@ -6,13 +6,24 @@ from torch.autograd import Function
 from floating_point import cpp_round
 from floating_point.data_types import FloatingPoint
 
+_EXTENSION_MISSING = "floating_point C++ extension is not built; install with pip install -e ."
+
 
 class StraightThroughEstimator(Function):
     @staticmethod
     def forward(ctx: Function, x: Tensor, dtype: FloatingPoint, min: float, max: float) -> Tensor:
+        if cpp_round is None:
+            raise RuntimeError(_EXTENSION_MISSING)
         x[x < min].fill_(min)
         x[x > max].fill_(max)
-        rounded = cpp_round(x, dtype.exponent_bits, dtype.mantissa_bits, dtype.bias)
+        rounded = cpp_round(
+            x,
+            dtype.exponent_bits,
+            dtype.mantissa_bits,
+            dtype.bias,
+            int(dtype.reserved_exponent),
+            dtype.max_mantissa_at_max_exponent,
+        )
         ctx.min, ctx.max = min, max
         ctx.save_for_backward(x, rounded)
         return rounded
