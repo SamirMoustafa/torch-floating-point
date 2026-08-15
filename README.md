@@ -108,6 +108,34 @@ for epoch in range(5):
     print(f"Epoch {epoch + 1}: Loss = {loss.item():.6f}")
 ```
 
+## NVIDIA-compatible presets
+
+These `FloatingPoint` configs match NVIDIA CUDA FP4/FP8 codec decode (element-wise only; not block-scaled MX `x = e * s_block`):
+
+```python
+from floating_point import FloatingPoint
+
+# __nv_fp4_e2m1  (requires reserved_exponent=False)
+fp4_e2m1 = FloatingPoint(sign_bits=1, exponent_bits=2, mantissa_bits=1, bias=1, bits=4, reserved_exponent=False)
+
+# __nv_fp8_e4m3 (E4M3-FN): max finite ±448; codes 127/255 are NaN
+fp8_e4m3fn = FloatingPoint(
+    sign_bits=1,
+    exponent_bits=4,
+    mantissa_bits=3,
+    bias=7,
+    bits=8,
+    max_mantissa_at_max_exponent=6,
+    reserved_exponent=False,
+)
+
+# __nv_fp8_e5m2
+fp8_e5m2 = FloatingPoint(sign_bits=1, exponent_bits=5, mantissa_bits=2, bias=15, bits=8, reserved_exponent=True)
+
+# __nv_fp8_e8m0 (UE8M0 MX scales): codes 0..254 → 2^(E-127); 255 → NaN
+fp8_e8m0 = FloatingPoint(sign_bits=0, exponent_bits=8, mantissa_bits=0, bias=127, bits=8, reserved_exponent=True)
+```
+
 ## Contributing
 
 1. Fork the repository

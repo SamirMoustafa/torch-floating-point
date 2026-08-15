@@ -199,14 +199,17 @@ cpu_flags = detect_cpu_flags()
 cuda_flags = detect_cuda_flags()
 system_flags = detect_system_flags()
 
-# Force the ABI to match actual PyTorch libraries (always use legacy ABI for compatibility)
-base_cxx_flags = ["-fopenmp", "-D_GLIBCXX_USE_CXX11_ABI=0"]
+# Match the ABI of the installed PyTorch build (required for extension linking).
+_torch_cxx11_abi = "1" if torch._C._GLIBCXX_USE_CXX11_ABI else "0"
+base_cxx_flags = ["-fopenmp", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
 if platform.system() != "Windows":
     base_cxx_flags.extend(cpu_flags)
     base_cxx_flags.extend(system_flags)
 
 extra_compile_args = {
-    "cxx": base_cxx_flags if platform.system() != "Windows" else ["/openmp", "-D_GLIBCXX_USE_CXX11_ABI=0"]
+    "cxx": base_cxx_flags
+    if platform.system() != "Windows"
+    else ["/openmp", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
 }
 
 extra_link_args = ["-fopenmp"] if platform.system() != "Windows" else []
@@ -244,7 +247,7 @@ if cuda.is_available():
     if cuda_flags:
         extra_compile_args["nvcc"] = cuda_flags
     else:
-        extra_compile_args["nvcc"] = ["-O2", "-D_GLIBCXX_USE_CXX11_ABI=0"]
+        extra_compile_args["nvcc"] = ["-O2", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
 else:
     print("No CUDA detected, building without CUDA support.")
     extension_class = CppExtension

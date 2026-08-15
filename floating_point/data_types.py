@@ -33,17 +33,24 @@ class FloatingPoint:
 
     @property
     def minimum(self) -> float:
-        return -self.maximum if self.is_signed else 0.0
+        if self.is_signed:
+            return -self.maximum
+        # UE8M0-style unsigned scales: no zero code; smallest is 2^(-bias).
+        if self.mantissa_bits == 0 and self.reserved_exponent:
+            return float(2 ** (-self.bias))
+        return 0.0
 
     @property
     def maximum(self) -> float:
         if self.exponent_bits == 0:
             max_exponent, max_mantissa = 1 - self.bias, (2**self.mantissa_bits) - 1
             return float((max_mantissa / (2**self.mantissa_bits)) * (2**max_exponent))
-        else:
+        if self.mantissa_bits == 0:
             max_stored_exponent = (2**self.exponent_bits - 2) if self.reserved_exponent else (2**self.exponent_bits - 1)
-            max_exponent = max_stored_exponent - self.bias
-            return float((1 + self.max_mantissa_at_max_exponent / (2**self.mantissa_bits)) * (2**max_exponent))
+            return float(2 ** (max_stored_exponent - self.bias))
+        max_stored_exponent = (2**self.exponent_bits - 2) if self.reserved_exponent else (2**self.exponent_bits - 1)
+        max_exponent = max_stored_exponent - self.bias
+        return float((1 + self.max_mantissa_at_max_exponent / (2**self.mantissa_bits)) * (2**max_exponent))
 
     def generate_bit_combinations(self) -> List[int]:
         return [int("".join(map(str, bits)), 2) for bits in product([0, 1], repeat=self.bits)]
@@ -60,18 +67,32 @@ class FloatingPoint:
         if self.exponent_bits == 0:
             exponent_value, mantissa_value = 1 - self.bias, mantissa / (2**self.mantissa_bits)
             return sign_factor * 0.0 if mantissa == 0 else float(sign_factor * mantissa_value * (2**exponent_value))
-        else:
-            max_exponent = (1 << self.exponent_bits) - 1
+
+        max_exponent = (1 << self.exponent_bits) - 1
+
+        # Pure exponent formats (M0): powers of two. UE8M0 (reserved) has no zero and NaN at max.
+        if self.mantissa_bits == 0:
             if self.reserved_exponent and exponent == max_exponent:
-                return sign_factor * math.inf if mantissa == 0 else math.nan
-            elif exponent == 0:
-                if mantissa == 0:
-                    return sign_factor * 0.0
-                mantissa_value = mantissa / (2**self.mantissa_bits)
-                return float(sign_factor * mantissa_value * (2 ** (1 - self.bias)))
-            else:
-                exponent_value, mantissa_value = exponent - self.bias, 1 + (mantissa / (2**self.mantissa_bits))
-                return float(sign_factor * mantissa_value * (2**exponent_value))
+                return math.nan
+            if exponent == 0 and not self.reserved_exponent:
+                return sign_factor * 0.0
+            return float(sign_factor * (2 ** (exponent - self.bias)))
+
+        if self.reserved_exponent and exponent == max_exponent:
+            return sign_factor * math.inf if mantissa == 0 else math.nan
+
+        # E4M3-FN style: max exponent is finite, but mantissa above the cap is NaN.
+        if not self.reserved_exponent and exponent == max_exponent and mantissa > self.max_mantissa_at_max_exponent:
+            return math.nan
+
+        if exponent == 0:
+            if mantissa == 0:
+                return sign_factor * 0.0
+            mantissa_value = mantissa / (2**self.mantissa_bits)
+            return float(sign_factor * mantissa_value * (2 ** (1 - self.bias)))
+
+        exponent_value, mantissa_value = exponent - self.bias, 1 + (mantissa / (2**self.mantissa_bits))
+        return float(sign_factor * mantissa_value * (2**exponent_value))
 
     def generate_all_custom_fp_values(self):
         bit_combinations = self.generate_bit_combinations()

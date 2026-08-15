@@ -1,14 +1,43 @@
 from .data_types import FloatingPoint
-from .floating_point import inplace as cpp_inplace
-from .floating_point import round as cpp_round
+
+try:
+    from .floating_point import inplace as cpp_inplace
+    from .floating_point import round as cpp_round
+except ImportError:  # pragma: no cover - extension not built yet
+    cpp_inplace = None
+    cpp_round = None
+
 from .round import Round, StraightThroughEstimator
 
+_EXTENSION_MISSING = "floating_point C++ extension is not built; install with pip install -e ."
 
-def round(input, exponent_bits, mantissa_bits, bias):
-    dtype = FloatingPoint(1, exponent_bits, mantissa_bits, bias, exponent_bits + mantissa_bits + 1)
+
+def round(input, exponent_bits, mantissa_bits, bias, reserved_exponent=True, max_mantissa_at_max_exponent=None):
+    dtype = FloatingPoint(
+        1,
+        exponent_bits,
+        mantissa_bits,
+        bias,
+        exponent_bits + mantissa_bits + 1,
+        max_mantissa_at_max_exponent=max_mantissa_at_max_exponent,
+        reserved_exponent=reserved_exponent,
+    )
     return StraightThroughEstimator.apply(input, dtype, dtype.minimum, dtype.maximum)
 
 
-inplace = cpp_inplace
+def inplace(input, exponent_bits, mantissa_bits, bias, reserved_exponent=True, max_mantissa_at_max_exponent=None):
+    if cpp_inplace is None:
+        raise RuntimeError(_EXTENSION_MISSING)
+    if max_mantissa_at_max_exponent is None:
+        max_mantissa_at_max_exponent = (1 << mantissa_bits) - 1
+    return cpp_inplace(
+        input,
+        exponent_bits,
+        mantissa_bits,
+        bias,
+        int(reserved_exponent),
+        max_mantissa_at_max_exponent,
+    )
+
 
 __all__ = ["FloatingPoint", "Round", "inplace", "round"]
