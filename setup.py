@@ -201,7 +201,11 @@ system_flags = detect_system_flags()
 
 # Match the ABI of the installed PyTorch build (required for extension linking).
 _torch_cxx11_abi = "1" if torch._C._GLIBCXX_USE_CXX11_ABI else "0"
-base_cxx_flags = ["-fopenmp", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
+# Apple's clang does not support -fopenmp unless libomp is installed, so skip
+# OpenMP on macOS rather than failing the build.
+base_cxx_flags = [f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
+if platform.system() != "Darwin":
+    base_cxx_flags.insert(0, "-fopenmp")
 if platform.system() != "Windows":
     base_cxx_flags.extend(cpu_flags)
     base_cxx_flags.extend(system_flags)
@@ -212,7 +216,7 @@ extra_compile_args = {
     else ["/openmp", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
 }
 
-extra_link_args = ["-fopenmp"] if platform.system() != "Windows" else []
+extra_link_args = ["-fopenmp"] if platform.system() not in ("Windows", "Darwin") else []
 
 # Set PyTorch library path for runtime linking
 torch_lib_path = os.path.join(os.path.dirname(torch.__file__), "lib")
