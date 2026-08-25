@@ -1,5 +1,7 @@
 #include <torch/extension.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 #include <cmath>
 
 #ifdef WITH_CUDA
