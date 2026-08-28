@@ -170,13 +170,17 @@ jobs:
       run: |
         PACKAGE_NAME="torch-floating-point"
         CURRENT_VERSION=$(python version.py)
-        VERSION_EXISTS=$(pip index versions $PACKAGE_NAME | grep $CURRENT_VERSION || true)
-        if [ -z "$VERSION_EXISTS" ]; then
-          echo "Version does not exist on PyPI, proceeding with upload."
+        http_code=$(curl -sS -o /dev/null -w "%{http_code}" \
+          "https://pypi.org/pypi/${PACKAGE_NAME}/${CURRENT_VERSION}/json")
+        if [ "$http_code" -eq 200 ]; then
+          echo "Version ${CURRENT_VERSION} already exists on PyPI, skipping upload."
+          echo "exists=true" >> $GITHUB_OUTPUT
+        elif [ "$http_code" -eq 404 ]; then
+          echo "Version ${CURRENT_VERSION} does not exist on PyPI, proceeding with upload."
           echo "exists=false" >> $GITHUB_OUTPUT
         else
-          echo "Version already exists on PyPI, skipping upload."
-          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "::error::Unexpected PyPI response HTTP ${http_code} for ${PACKAGE_NAME}==${CURRENT_VERSION}"
+          exit 1
         fi
 
     - name: Upload to PyPI
