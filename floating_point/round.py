@@ -14,28 +14,28 @@ class StraightThroughEstimator(Function):
     def forward(ctx: Function, x: Tensor, dtype: FloatingPoint, min: float, max: float) -> Tensor:
         if cpp_round is None:
             raise RuntimeError(_EXTENSION_MISSING)
-        x[x < min].fill_(min)
-        x[x > max].fill_(max)
+        # Save pre-clamp x so backward can mask saturation. Do not mutate the
+        # caller's tensor; cpp_round clones before rounding.
+        ctx.min, ctx.max = min, max
+        ctx.save_for_backward(x)
         rounded = cpp_round(
-            x,
+            x.clamp(min, max),
             dtype.exponent_bits,
             dtype.mantissa_bits,
             dtype.bias,
             int(dtype.reserved_exponent),
             dtype.max_mantissa_at_max_exponent,
         )
-        ctx.min, ctx.max = min, max
-        ctx.save_for_backward(x, rounded)
         return rounded
 
     @staticmethod
     def backward(ctx: Function, grad_output: Tensor) -> Tuple[Tensor, None, None, None]:
-        x, _ = ctx.saved_tensors
-        if x.grad_fn.__class__.__name__ == ctx.__class__.__name__:
+        (x,) = ctx.saved_tensors
+        if x.grad_fn is not None and x.grad_fn.__class__.__name__ == ctx.__class__.__name__:
             raise RuntimeError("Double quantization detected.")
-        grad_input = grad_output.clone()
-        grad_input[grad_input < ctx.min].fill_(ctx.min)
-        grad_input[grad_input > ctx.max].fill_(ctx.max)
+        # Clipped STE: identity through the staircase, zero outside [min, max].
+        in_range = (x >= ctx.min) & (x <= ctx.max)
+        grad_input = grad_output * in_range.to(dtype=grad_output.dtype)
         return grad_input, None, None, None
 
 
