@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1> Torch Floating Point</h1>
-<img src="https://raw.githubusercontent.com/SamirMoustafa/torch-floating-point/refs/heads/main/assets/torch-floating-point-logo.png"/>
+<img src="https://raw.githubusercontent.com/SamirMoustafa/torch-floating-point/refs/heads/main/assets/torch-floating-point-logo.svg"/>
 
 ![python-3.10](https://img.shields.io/badge/python-3.10%2B-blue)
 ![pytorch-1.13.1](https://img.shields.io/badge/torch-2.4.1%2B-orange)
@@ -108,17 +108,17 @@ for epoch in range(5):
     print(f"Epoch {epoch + 1}: Loss = {loss.item():.6f}")
 ```
 
-## NVIDIA-compatible presets
+## Common layouts (OFP8 / MX)
 
-These `FloatingPoint` configs match NVIDIA CUDA FP4/FP8 codec decode (element-wise). For block-scaled NVFP4 / MX (`x = e * s_block`), use `BlockRound` below.
+E4M3 and E5M2 are [OCP OFP8](https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-ofp8-revision-1-1-final-pdf) encodings ([Micikevicius et al., 2022](https://arxiv.org/abs/2209.05433)). E2M1 and UE8M0 come from [OCP MX](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) ([Rouhani et al., 2023](https://arxiv.org/abs/2310.10537)). CUDA `__nv_*` comments below are aliases; decode goldens match `cuda_fp4.h` / `cuda_fp8.h`. AMD MI300 FP8 is HIP **FNUZ**, not OCP. For block-scaled `x = e * s_block`, use `BlockRound`.
 
 ```python
 from floating_point import FloatingPoint
 
-# __nv_fp4_e2m1  (requires reserved_exponent=False)
+# E2M1  (__nv_fp4_e2m1; reserved_exponent=False)
 fp4_e2m1 = FloatingPoint(sign_bits=1, exponent_bits=2, mantissa_bits=1, bias=1, bits=4, reserved_exponent=False)
 
-# __nv_fp8_e4m3 (E4M3-FN): max finite ±448; codes 127/255 are NaN
+# E4M3-FN (__nv_fp8_e4m3): max finite ±448; codes 127/255 are NaN
 fp8_e4m3fn = FloatingPoint(
     sign_bits=1,
     exponent_bits=4,
@@ -129,18 +129,20 @@ fp8_e4m3fn = FloatingPoint(
     reserved_exponent=False,
 )
 
-# __nv_fp8_e5m2
+# E5M2 (__nv_fp8_e5m2)
 fp8_e5m2 = FloatingPoint(sign_bits=1, exponent_bits=5, mantissa_bits=2, bias=15, bits=8, reserved_exponent=True)
 
-# __nv_fp8_e8m0 (UE8M0 MX scales): codes 0..254 → 2^(E-127); 255 → NaN
+# UE8M0 (__nv_fp8_e8m0): codes 0..254 → 2^(E-127); 255 → NaN
 fp8_e8m0 = FloatingPoint(sign_bits=0, exponent_bits=8, mantissa_bits=0, bias=127, bits=8, reserved_exponent=True)
 ```
 
-### Block-scaled Round (NVFP4 / MXFP8)
+### Block-scaled Round (NVFP4 / MX)
 
-Shared per-block scale: `y_i = Round_elem(x_i / s) * s`. Absmax mode detaches `s` (CUDA-style); pass `scales=` for learnable QAT scales with gradients.
+Shared per-block scale: `y_i = Round_elem(x_i / s) * s`. Absmax mode detaches `s` (STE on `x` only); pass `scales=` for learnable QAT scales with gradients.
 
-UE8M0 **block** scale encode uses CUDA-style round-up to the next power of two. Element-wise `Round(fp8_e8m0)` remains nearest.
+OCP MX (MXFP8 / MXFP4) uses UE8M0 scales and `block_size=32` — NVIDIA Blackwell and AMD CDNA4. **NVFP4** is NVIDIA-only: E2M1 + E4M3 scales, `block_size=16` ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)).
+
+UE8M0 **block** scale encode rounds **up** to the next power of two (OCP MX). Element-wise `Round(fp8_e8m0)` remains nearest.
 
 ```python
 from floating_point import BlockRound, FloatingPoint, block_round, sample_block_scaled

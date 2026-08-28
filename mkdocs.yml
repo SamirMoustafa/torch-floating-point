@@ -1,0 +1,100 @@
+site_name: Torch Floating Point
+site_description: Custom floating-point quantization for PyTorch, with autograd.
+site_url: https://torch-floating-point.readthedocs.io/
+site_author: Samir Moustafa
+
+repo_name: torch-floating-point
+repo_url: https://github.com/SamirMoustafa/torch-floating-point
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; Samir Moustafa
+
+strict: true
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  logo: assets/mark.svg
+  favicon: assets/mark.svg
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.footer
+    - navigation.top
+    - content.code.copy
+    - content.tabs.link
+    - content.action.edit
+    - content.action.view
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to system preference
+
+nav:
+  - Home: index.md
+  - Formats: formats.md
+  - Block scale: block.md
+  - Autograd: autograd.md
+  - API: api.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/SamirMoustafa/torch-floating-point
+      name: GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/torch-floating-point/
+      name: PyPI
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+  - javascripts/readthedocs.js
+  - javascripts/ewgs-slider.js
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
