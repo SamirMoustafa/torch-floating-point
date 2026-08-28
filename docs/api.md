@@ -28,8 +28,8 @@ Requires `bits == sign_bits + exponent_bits + mantissa_bits` and `sign_bits` in 
 ## `Round`
 
 ```python
-rounder = Round(fp)   # fp: FloatingPoint
-y = rounder(x)        # STE autograd; needs the compiled extension
+rounder = Round(fp)  # fp: FloatingPoint
+y = rounder(x)  # STE autograd; needs the compiled extension
 ```
 
 Clamps to `[fp.minimum, fp.maximum]`, then rounds with the C++/CUDA kernel.

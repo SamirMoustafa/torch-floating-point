@@ -21,7 +21,7 @@ y = \operatorname{Round}(x),
 
 ```python
 y = Round(fp)(x)
-y.sum().backward()   # x.grad is 1 inside range, 0 outside
+y.sum().backward()  # x.grad is 1 inside range, 0 outside
 ```
 
 ## Block-scaled
@@ -103,6 +103,7 @@ from floating_point.round import Round, StraightThroughEstimator
 
 DELTA = 1.0  # 0 recovers clipped STE
 
+
 class EWGS(StraightThroughEstimator):
     @staticmethod
     def forward(ctx, x, dtype, min, max):
@@ -120,10 +121,12 @@ class EWGS(StraightThroughEstimator):
         grad_x = grad_output * scale * in_range.to(dtype=grad_output.dtype)
         return grad_x, None, None, None
 
+
 class EWGSRound(Round):
     def forward(self, x):
         fp = self.data_type
         return EWGS.apply(x, fp, fp.minimum, fp.maximum)
+
 
 s = torch.tensor(1.0, requires_grad=True)
 y = EWGSRound(fp)(x / s) * s

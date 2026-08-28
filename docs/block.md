@@ -15,8 +15,8 @@ ue8 = FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)
 
 # NVFP4: E2M1 elements + E4M3 scales, block_size=16
 nvfp4 = BlockRound(fp4, fp8, M=6, block_size=16)
-y = nvfp4(x)                 # absmax scales, STE on x only
-y = nvfp4(x, scales=s)       # gradients into scales
+y = nvfp4(x)  # absmax scales, STE on x only
+y = nvfp4(x, scales=s)  # gradients into scales
 
 # MXFP8: E4M3 elements + UE8M0 scales, block_size=32
 mxfp8 = BlockRound(fp8, ue8, M=448, block_size=32)

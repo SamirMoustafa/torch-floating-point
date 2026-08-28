@@ -66,6 +66,7 @@ Train with quantized weights using the same rounder:
 import torch.nn as nn
 from floating_point import FloatingPoint, Round
 
+
 class FloatPointLinear(nn.Module):
     def __init__(self, inn, out, fp):
         super().__init__()

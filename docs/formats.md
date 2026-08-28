@@ -10,9 +10,9 @@ fp = FloatingPoint(
     exponent_bits=4,
     mantissa_bits=3,
     bias=7,
-    bits=8,                      # must equal S + E + M
+    bits=8,  # must equal S + E + M
     max_mantissa_at_max_exponent=None,  # default: 2^M - 1
-    reserved_exponent=True,      # max exponent → Inf/NaN
+    reserved_exponent=True,  # max exponent → Inf/NaN
 )
 y = Round(fp)(x)
 ```
