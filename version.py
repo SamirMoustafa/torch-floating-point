@@ -3,6 +3,6 @@
 Centralized version management for torch-floating-point project.
 """
 
-__version__ = "0.0.16"
+__version__ = "0.0.17"
 if __name__ == "__main__":
     print(__version__)
