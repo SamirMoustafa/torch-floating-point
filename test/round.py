@@ -33,6 +33,23 @@ class TestRoundFunctionDifferentiability(unittest.TestCase):
         x_grad_val = x_val.grad.clone().detach()
         self.assertTrue(torch.allclose(x_grad_round, x_grad_val, rtol=1e-5, atol=1e-5), "Gradient mismatch.")
 
+    @parameterized.expand([(d,) for d in (["cpu"] + (["cuda"] if torch.cuda.is_available() else []))])
+    def test_clipped_ste_zeros_outside_range(self, device):
+        fp = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
+        rounder = Round(fp)
+        x = torch.tensor([-10.0, -6.0, 0.0, 6.0, 10.0], device=device, requires_grad=True)
+        rounder(x).sum().backward()
+        expected = torch.tensor([0.0, 1.0, 1.0, 1.0, 0.0], device=device)
+        self.assertTrue(torch.equal(x.grad, expected))
+
+    @parameterized.expand([(d,) for d in (["cpu"] + (["cuda"] if torch.cuda.is_available() else []))])
+    def test_ste_does_not_clip_grad_magnitude(self, device):
+        fp = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
+        rounder = Round(fp)
+        x = torch.tensor([1.0], device=device, requires_grad=True)
+        rounder(x).backward(torch.tensor([100.0], device=device))
+        self.assertEqual(float(x.grad), 100.0)
+
 
 class TestFloatingPointRounding(unittest.TestCase):
     __float8e5m2__ = FloatingPoint(1, 5, 2, 15, 8, reserved_exponent=True)
