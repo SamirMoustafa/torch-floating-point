@@ -42,8 +42,7 @@ class TestBlockRoundNVFP4(unittest.TestCase):
     @parameterized.expand([(d,) for d in DEVICES])
     def test_plain_e2m1_grid_has_drift(self, device):
         codes = torch.tensor(
-            [v for v in NVFP4.elem_fp.values if abs(v) <= 6], dtype=torch.float32, device=device
-        )
+            [v for v in NVFP4.elem_fp.values if abs(v) <= 6], dtype=torch.float32, device=device)
         idx = torch.randint(0, len(codes), (8, 64), device=device)
         x = codes[idx]
         y = block_round(x, NVFP4)
@@ -139,8 +138,7 @@ class TestEncodePolicies(unittest.TestCase):
             (256.0, 1.0, 2.0, 1.0, 0.5, 256.0 / 448.0),
             (448.0, 1.0, 2.0, 1.0, 1.0, 1.0),
             (672.0, 2.0, 4.0, 2.0, 1.0, 1.5),
-            (1024.0, 4.0, 8.0, 4.0, 2.0, 1024.0 / 448.0),
-        ]
+            (1024.0, 4.0, 8.0, 4.0, 2.0, 1024.0 / 448.0)]
         floor_s = BlockFormat(E4M3, UE8M0, 32, 448.0, "ocp_floor")
         x2_s = BlockFormat(E4M3, UE8M0, 32, 448.0, "ocp_floor_x2")
         ceil_s = BlockFormat(E4M3, UE8M0, 32, 448.0, "ue8m0_ceil")

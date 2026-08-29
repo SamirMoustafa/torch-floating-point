@@ -17,9 +17,7 @@ _SCALE_ENCODES = frozenset(
         "ocp_floor",
         "ocp_floor_x2",
         "amax_over_M",
-        "signed_peak",
-    }
-)
+        "signed_peak"})
 _PADS = frozenset({"error", "zero"})
 _TILE_RANK = 2
 _BlockSize = Union[int, Tuple[int, int]]
@@ -210,8 +208,7 @@ def _layout_for(shape: Tuple[int, ...], spec: BlockFormat) -> _Layout:
         _TILE_RANK,
         sizes,
         (height + pad_h) // h,
-        (width + pad_w) // w,
-    )
+        (width + pad_w) // w)
 
 
 def _permute(x: Tensor, layout: _Layout) -> Tensor:
@@ -289,8 +286,7 @@ def _normalize_scales(scales: Tensor, layout: _Layout) -> Tensor:
             return scales.unsqueeze(-1)
         raise ValueError(
             f"scales must have shape (..., n_blocks) or (..., n_blocks, 1) "
-            f"with n_blocks={n_blocks}; got {tuple(scales.shape)}"
-        )
+            f"with n_blocks={n_blocks}; got {tuple(scales.shape)}")
     n_h, n_w = layout.n_h, layout.n_w
     if scales.shape[-4:] == (n_h, 1, n_w, 1):
         return scales
@@ -298,8 +294,7 @@ def _normalize_scales(scales: Tensor, layout: _Layout) -> Tensor:
         return scales.unsqueeze(-2).unsqueeze(-1)
     raise ValueError(
         f"scales must have shape (..., n_h, n_w) or (..., n_h, 1, n_w, 1) "
-        f"with n_h={n_h}, n_w={n_w}; got {tuple(scales.shape)}"
-    )
+        f"with n_h={n_h}, n_w={n_w}; got {tuple(scales.shape)}")
 
 
 def _sg_blocks(

@@ -24,8 +24,7 @@ class StraightThroughEstimator(Function):
             dtype.mantissa_bits,
             dtype.bias,
             int(dtype.reserved_exponent),
-            dtype.max_mantissa_at_max_exponent,
-        )
+            dtype.max_mantissa_at_max_exponent)
         return rounded
 
     @staticmethod

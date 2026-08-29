@@ -38,8 +38,7 @@ def detect_cpu_flags():
         if platform.machine() == "x86_64":
             # Check for specific CPU features
             result = subprocess.run(
-                ["grep", "-m1", "flags", "/proc/cpuinfo"], check=False, capture_output=True, text=True, timeout=5
-            )
+                ["grep", "-m1", "flags", "/proc/cpuinfo"], check=False, capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 cpu_flags = result.stdout.lower()
 
@@ -100,9 +99,7 @@ def detect_cuda_flags():
             flags.extend(
                 [
                     f"-gencode=arch=compute_{capability[0]}{capability[1]},code=compute_{capability[0]}{capability[1]}",
-                    f"-gencode=arch=compute_{capability[0]}{capability[1]},code=sm_{capability[0]}{capability[1]}",
-                ]
-            )
+                    f"-gencode=arch=compute_{capability[0]}{capability[1]},code=sm_{capability[0]}{capability[1]}"])
 
             # Note: PTX forward compatibility is handled by TORCH_CUDA_ARCH_LIST
 
@@ -114,9 +111,7 @@ def detect_cuda_flags():
                         "-use_fast_math",  # Fast math operations
                         "-maxrregcount=32",  # Limit register usage
                         "--expt-relaxed-constexpr",
-                        "--expt-extended-lambda",
-                    ]
-                )
+                        "--expt-extended-lambda"])
             elif capability[0] >= CUDA_VOLTA_AND_TURING:  # Volta and Turing
                 flags.extend(["-O3", "-use_fast_math", "-maxrregcount=32"])
             else:  # Older architectures
@@ -149,8 +144,7 @@ def detect_system_flags():
                             if mem_gb >= MIN_MEMORY_GB_FOR_AGGRESSIVE_OPT:
                                 flags.append("-DNDEBUG")  # Disable debug assertions
                                 print(
-                                    f"High memory system detected ({mem_gb:.1f}GB), enabling aggressive optimizations"
-                                )
+                                    f"High memory system detected ({mem_gb:.1f}GB), enabling aggressive optimizations")
                             break
             except (OSError, ValueError):
                 pass
@@ -213,8 +207,7 @@ if platform.system() != "Windows":
 extra_compile_args = {
     "cxx": base_cxx_flags
     if platform.system() != "Windows"
-    else ["/openmp", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
-}
+    else ["/openmp", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]}
 
 extra_link_args = ["-fopenmp"] if platform.system() not in ("Windows", "Darwin") else []
 
@@ -273,9 +266,7 @@ setup(
             sources=sources,
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
-            extra_link_args=extra_link_args,
-        )
-    ],
+            extra_link_args=extra_link_args)],
     cmdclass={"build_ext": BuildExtension, "bdist_wheel": CustomWheel},
     python_requires=">=3.8",
     classifiers=[
@@ -292,7 +283,5 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "Framework :: Pytest",
-    ],
-    keywords=["pytorch", "floating-point", "quantization", "autograd", "machine-learning", "deep-learning"],
-)
+        "Framework :: Pytest"],
+    keywords=["pytorch", "floating-point", "quantization", "autograd", "machine-learning", "deep-learning"])
