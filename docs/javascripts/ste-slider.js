@@ -71,6 +71,30 @@ const ESTIMATORS = {
       return gate * ((1 - amp * c) / (1 + amp * c));
     },
   },
+  dasr: {
+    panels: 2,
+    height: 4.6,
+    padBottom: 0.11,
+    ratios: [1.45, 1.0],
+    forwardLabel: "y = two-nearest",
+    gxYlim: [-0.2, 12.0],
+    gxStep: 2,
+    format: (value) => formatNumber(value, 2),
+    softForward: true,
+    softMode: "dasr",
+  },
+  hestia: {
+    panels: 2,
+    height: 4.6,
+    padBottom: 0.11,
+    ratios: [1.45, 1.0],
+    forwardLabel: "y = codebook softmax",
+    gxYlim: [-0.2, 12.0],
+    gxStep: 2,
+    format: (value) => formatNumber(value, 2),
+    softForward: true,
+    softMode: "hestia",
+  },
 };
 
 function jsonUrl(root) {
@@ -131,7 +155,79 @@ function linspace(lo, hi, n) {
   return x;
 }
 
+function bisectRight(codes, value) {
+  let lo = 0;
+  let hi = codes.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (codes[mid] <= value) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+function mixCodes(x, subset, tau) {
+  let zMax = -Infinity;
+  const z = new Float64Array(subset.length);
+  for (let i = 0; i < subset.length; i++) {
+    z[i] = -((x - subset[i]) * (x - subset[i])) / tau;
+    if (z[i] > zMax) {
+      zMax = z[i];
+    }
+  }
+  let denom = 0;
+  const w = new Float64Array(subset.length);
+  for (let i = 0; i < subset.length; i++) {
+    w[i] = Math.exp(z[i] - zMax);
+    denom += w[i];
+  }
+  let y = 0;
+  for (let i = 0; i < subset.length; i++) {
+    w[i] /= denom;
+    y += w[i] * subset[i];
+  }
+  let variance = 0;
+  for (let i = 0; i < subset.length; i++) {
+    const d = subset[i] - y;
+    variance += w[i] * d * d;
+  }
+  return { y, gx: (2 / tau) * variance };
+}
+
+function mixAt(x, codes, tau, mode) {
+  if (mode === "dasr") {
+    const idx = bisectRight(codes, x);
+    if (idx <= 0) {
+      return { y: codes[0], gx: 0 };
+    }
+    if (idx >= codes.length) {
+      return { y: codes[codes.length - 1], gx: 0 };
+    }
+    return mixCodes(x, [codes[idx - 1], codes[idx]], tau);
+  }
+  return mixCodes(x, codes, tau);
+}
+
+function forwardSoft(x, codes, tau, mode) {
+  const n = x.length;
+  const y = new Float64Array(n);
+  const gx = new Float64Array(n);
+  const t = Math.max(tau, 1e-4);
+  for (let i = 0; i < n; i++) {
+    const mixed = mixAt(x[i], codes, t, mode);
+    y[i] = mixed.y;
+    gx[i] = mixed.gx;
+  }
+  return { y, gx };
+}
+
 function grads(spec, data, x, param) {
+  if (spec.softForward) {
+    return forwardSoft(x, data.codes, param, spec.softMode);
+  }
   const n = data.n;
   const y = data.y;
   const gx = new Float64Array(n);
@@ -141,7 +237,7 @@ function grads(spec, data, x, param) {
     gx[i] = jac;
     gs[i] = y[i] - x[i] * jac;
   }
-  return { gx, gs };
+  return { y, gx, gs };
 }
 
 function colorScheme() {
@@ -331,7 +427,7 @@ function render(canvas, spec, data, x, param) {
     return rect;
   });
 
-  const { gx, gs } = grads(spec, data, x, param);
+  const { y, gx, gs } = grads(spec, data, x, param);
   const xlo = data.lo;
   const xhi = data.hi;
   const xticks = ticks(-10, 10, 2.5);
@@ -344,7 +440,7 @@ function render(canvas, spec, data, x, param) {
       xlabel: false,
       series: [
         { y: x, color: pal.muted, lw: 1.15, dash: [6, 4] },
-        { y: data.y, color: pal.orange, lw: 2.2, dash: [] },
+        { y, color: pal.orange, lw: 2.2, dash: [] },
       ],
       legend: [
         { label: "x", color: pal.muted, lw: 1.15, dash: [6, 4] },
