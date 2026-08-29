@@ -1,6 +1,6 @@
 # API
 
-Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `sample_block_scaled`, `round`, `inplace`.
+Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `round`, `inplace`.
 
 ## `FloatingPoint`
 
@@ -60,7 +60,6 @@ Call as `rounder(x, scales=None, return_aux=False, s_global=None)`. Reconstruct 
 
 ```python
 block_round(x, spec, scales=None, rounder=Round, return_aux=False, s_global=None)
-sample_block_scaled(shape, spec, generator=None, device=None, dtype=torch.float32, s_global=None)
 ```
 
 ## Functional round

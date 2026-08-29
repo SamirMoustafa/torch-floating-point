@@ -7,7 +7,7 @@ Shared per-block scale: \(y = (e - z)\,s\,s_{\mathrm{global}}\) with \(e = \math
 The element map is a `Round` subclass (`rounder=`, default stock STE). Absmax detaches \(s\). Pass `scales=` for learnable QAT scales. Pass `s_global=` (or set `BlockFormat.s_global`) for a second-level tensor scale.
 
 ```python
-from floating_point import BlockFormat, BlockRound, FloatingPoint, sample_block_scaled
+from floating_point import BlockFormat, BlockRound, FloatingPoint
 
 e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
 e4m3 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
@@ -22,8 +22,6 @@ y = BlockRound(nvfp4)(x, scales=s)  # gradients into scales
 y = BlockRound(nvfp4)(x, s_global=tensor_scale)
 y = BlockRound(mxfp8)(x)
 y = BlockRound(mxfp4, rounder=MyRound)(x)
-
-x = sample_block_scaled((8, 64), nvfp4)
 ```
 
 ## `BlockFormat` fields

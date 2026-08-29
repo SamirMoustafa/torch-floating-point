@@ -4,7 +4,7 @@ import torch
 from parameterized import parameterized
 from torch import nn
 
-from floating_point import BlockFormat, BlockRound, FloatingPoint, Round, block_round, sample_block_scaled
+from floating_point import BlockFormat, BlockRound, FloatingPoint, Round, block_round
 from floating_point.block_round import encode_scale
 
 DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
@@ -14,7 +14,6 @@ E4M3 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exp
 UE8M0 = FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)
 # Hardware packings as fixtures — not package exports.
 NVFP4 = BlockFormat(E2M1, E4M3, 16, 6.0, "nearest")
-MXFP4 = BlockFormat(E2M1, UE8M0, 32, 6.0, "ue8m0_ceil")
 MXFP8 = BlockFormat(E4M3, UE8M0, 32, 448.0, "ue8m0_ceil")
 HOPPER_1D = BlockFormat(E4M3, UE8M0, 128, 448.0, "amax_over_M")
 
@@ -34,13 +33,6 @@ class Int4Round(Round):
 
 
 class TestBlockRoundNVFP4(unittest.TestCase):
-    @parameterized.expand([(d,) for d in DEVICES])
-    def test_sampler_absmax_roundtrip(self, device):
-        torch.manual_seed(0)
-        x = sample_block_scaled((4, 64), NVFP4, device=torch.device(device))
-        y = block_round(x, NVFP4)
-        self.assertTrue(torch.allclose(x, y, rtol=0, atol=0))
-
     @parameterized.expand([(d,) for d in DEVICES])
     def test_plain_e2m1_grid_has_drift(self, device):
         codes = torch.tensor(
@@ -91,23 +83,7 @@ class TestBlockRoundNVFP4(unittest.TestCase):
             block_round(x, NVFP4)
 
 
-class TestBlockRoundMXFP4(unittest.TestCase):
-    @parameterized.expand([(d,) for d in DEVICES])
-    def test_sampler_absmax_roundtrip(self, device):
-        torch.manual_seed(2)
-        x = sample_block_scaled((2, 64), MXFP4, device=torch.device(device))
-        y = block_round(x, MXFP4)
-        self.assertTrue(torch.allclose(x, y, rtol=0, atol=0))
-
-
 class TestBlockRoundMXFP8(unittest.TestCase):
-    @parameterized.expand([(d,) for d in DEVICES])
-    def test_sampler_absmax_roundtrip(self, device):
-        torch.manual_seed(1)
-        x = sample_block_scaled((2, 64), MXFP8, device=torch.device(device))
-        y = BlockRound(MXFP8)(x)
-        self.assertTrue(torch.allclose(x, y, rtol=0, atol=0))
-
     @parameterized.expand([(d,) for d in DEVICES])
     def test_ue8m0_round_up_covers_amax(self, device):
         amax = torch.tensor([[1.5 * 448.0]], dtype=torch.float32, device=device)
@@ -254,23 +230,6 @@ class TestAffineInt4(unittest.TestCase):
         self.assertAlmostEqual(float(s.reshape(-1)[0]), 0.5, places=5)
         self.assertAlmostEqual(float(y[0, 0]), -4.0, places=5)
         self.assertAlmostEqual(float(y[0, 1]), 2.0, places=5)
-
-
-class TestSamplerContract(unittest.TestCase):
-    def test_rejects_zero_point(self):
-        spec = BlockFormat(E2M1, E4M3, 16, 6.0, "nearest", zero_point=1.0)
-        with self.assertRaises(ValueError):
-            sample_block_scaled((4, 64), spec)
-
-    def test_rejects_ocp_floor_x2(self):
-        spec = BlockFormat(E4M3, UE8M0, 32, 448.0, "ocp_floor_x2")
-        with self.assertRaises(ValueError):
-            sample_block_scaled((2, 32), spec)
-
-    def test_rejects_signed_peak(self):
-        spec = BlockFormat(E2M1, E4M3, 32, 8.0, "signed_peak")
-        with self.assertRaises(ValueError):
-            sample_block_scaled((1, 32), spec)
 
 
 if __name__ == "__main__":
