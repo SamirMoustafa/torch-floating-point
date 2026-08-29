@@ -6,7 +6,7 @@ NVIDIA’s NVFP4 ([blog](https://developer.nvidia.com/blog/introducing-nvfp4-for
 
 | Axis | Pick |
 | --- | --- |
-| Block scale | NVFP4 as above — `FloatingPoint` constructors match [Formats](formats.md); `M=6`, `block_size=16` |
+| Block scale | NVFP4 packing — E2M1 × E4M3, block 16, \(M=6\). See [Block scale](block.md). |
 | Forward | DASR on the **elements** \(x/s\) (two nearest E2M1 codes), then \(\times s\) |
 | Backward | \(\frac{2}{\tau}\operatorname{Var}_\pi(c)\) on \(x/s\) |
 
@@ -36,9 +36,7 @@ On this axis \(\mathrm{amax}=10\), so \(s=\operatorname{Round}(10/6)=1.625\) (an
   </div>
 </div>
 
-`BlockRound` still constructs stock `Round`, so wrap by hand.
-
-NVFP4 types: E2M1 elements, E4M3 scales, block 16, \(M=6\).
+`rounder=` is a `Round` subclass. Default is stock STE.
 
 ```python
 import math
@@ -46,14 +44,12 @@ import math
 import torch
 from torch.autograd import Function
 
-from floating_point import FloatingPoint, Round
-from floating_point.block_round import encode_scale
+from floating_point import BlockFormat, BlockRound, FloatingPoint, Round
 
 TAU = 0.15  # small τ ≈ Round
-B, M = 16, 6.0
-
-fp4 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)  # __nv_fp4_e2m1
-fp8 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)  # __nv_fp8_e4m3
+e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
+e4m3 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
+nvfp4 = BlockFormat(e2m1, e4m3, 16, 6.0, "nearest")
 ```
 
 Forward: softmax over the two codes that straddle \(x\); clamp outside the range. Backward: \(\frac{2}{\tau}\operatorname{Var}_\pi(c)\); zero in saturation. Not STE — no `cpp_round`.
@@ -93,15 +89,12 @@ class DASRRound(Round):
         return DASR.apply(x, codes)
 ```
 
-Absmax scale (detached, same as `BlockRound(...)(x)`), then \(y=\mathrm{DASR}(x/s)\,s\).
+Absmax (detached \(s\)):
 
 ```python
 x = torch.randn(4, 64, requires_grad=True)
-blocks = x.reshape(*x.shape[:-1], x.shape[-1] // B, B)
-s = encode_scale(blocks.detach().abs().amax(dim=-1, keepdim=True) / M, fp8)
-y = DASRRound(fp4)(blocks / s) * s
-y = y.reshape_as(x)
+y = BlockRound(nvfp4, rounder=DASRRound)(x)
 y.sum().backward()  # x.grad: DASR on x/s; s detached
 ```
 
-For QAT, `s = Round(fp8)(scale)` instead of `encode_scale`. Nested `Round` on the same tensor raises `Double quantization detected.`
+QAT: `BlockRound(nvfp4, rounder=DASRRound)(x, scales=s)`. Nested `Round` on the same tensor raises `Double quantization detected.`

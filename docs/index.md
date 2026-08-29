@@ -25,7 +25,7 @@ hide:
 
 -   **Block-scaled**
 
-    NVFP4 and MXFP8 via shared per-block scales.
+    Any element codebook with a shared per-block scale.
 
 </div>
 

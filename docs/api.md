@@ -1,6 +1,6 @@
 # API
 
-Public names: `from floating_point import ...`
+Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `sample_block_scaled`, `round`, `inplace`.
 
 ## `FloatingPoint`
 
@@ -32,21 +32,35 @@ rounder = Round(fp)  # fp: FloatingPoint
 y = rounder(x)  # STE autograd; needs the compiled extension
 ```
 
-Clamps to `[fp.minimum, fp.maximum]`, then rounds with the C++/CUDA kernel.
+Clamps to `[fp.minimum, fp.maximum]`, then rounds with the C++/CUDA kernel. Subclass and override `forward` for a custom estimator; pass that class as `rounder=` on `BlockRound`.
 
-## `BlockRound`
+## `BlockFormat` / `BlockRound`
 
 ```python
-BlockRound(elem_fp, scale_fp, M=None, block_size=16)
+BlockFormat(
+    elem_fp,
+    scale_fp,
+    block_size,
+    M,
+    scale_encode,
+    dims=(-1,),
+    s_global=1.0,
+    zero_point=0.0,
+    pad="error",
+)
+# block_size: int or (h, w)
+# scale_encode in {nearest, ue8m0_ceil, ue8m0_floor, ocp_floor, ocp_floor_x2,
+#                  amax_over_M, signed_peak}
+
+BlockRound(spec)
+BlockRound(spec, rounder=MyRound)
 ```
 
-`M` defaults to `elem_fp.maximum`. Call as `rounder(x, scales=None, return_aux=False)`.
-
-Functional form:
+Call as `rounder(x, scales=None, return_aux=False, s_global=None)`. Reconstruct is \(y = (e - z)\,s\,s_{\mathrm{global}}\). Hardware packings (NVFP4, MX, …) are `BlockFormat(...)` in [Block scale](block.md), not package exports.
 
 ```python
-block_round(x, elem_fp, scale_fp, M=None, block_size=16, scales=None, return_aux=False)
-sample_block_scaled(shape, elem_fp, scale_fp, M=None, block_size=16, generator=None, device=None, dtype=torch.float32)
+block_round(x, spec, scales=None, rounder=Round, return_aux=False, s_global=None)
+sample_block_scaled(shape, spec, generator=None, device=None, dtype=torch.float32, s_global=None)
 ```
 
 ## Functional round

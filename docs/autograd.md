@@ -27,10 +27,10 @@ y.sum().backward()  # x.grad is 1 inside range, 0 outside
 ## Block-scaled
 
 \[
-y_i = \left\lfloor\frac{x_i}{s}\right\rceil s.
+y_i = \left(\left\lfloor\frac{x_i}{s\,s_g} + z\right\rceil - z\right) s\,s_g.
 \]
 
-Absmax mode detaches \(s\). Learnable `scales=` keeps \(s\) in the graph. The gate is on \(x/s\), not on \(x\):
+Default \(z=0\), \(s_g=1\) recovers \(y_i = \lfloor x_i/s\rceil\,s\). Absmax mode detaches \(s\). Learnable `scales=` keeps \(s\) in the graph. The gate is on \(x/(s s_g)\), not on \(x\):
 
 \[
 \frac{\partial y_i}{\partial x_i}
@@ -58,7 +58,7 @@ The second branch is \(y = e\,s\) with \(\partial e/\partial s = 0\) (clipped ST
 
 Keep the **forward** (outputs must stay on `fp.values`). Replace only **backward**. Save the pre-clamp \(x\); do not `fill_` the caller's tensor.
 
-Quantization-aware training still starts from the straight-through estimator. EWGS, ReSTE, and RDFS scale or reshape that Jacobian — sliders below. LSQ keeps the element Jacobian and learns \(s\) — already `BlockRound(..., scales=s)`. MAD only changes saturation.
+Quantization-aware training still starts from the straight-through estimator. EWGS, ReSTE, and RDFS scale or reshape that Jacobian — sliders below. LSQ keeps the element Jacobian and learns \(s\) — `BlockRound(spec)(x, scales=s)`. MAD only changes saturation.
 
 | Surrogate | Backward | Reference |
 | --- | --- | --- |
@@ -386,5 +386,5 @@ y = HestiaRound(fp)(x)
 y.sum().backward()
 ```
 
-Do not wrap `Round` inside another `Function` — nested `Round` on the same tensor raises `Double quantization detected.` `BlockRound` instantiates `Round` internally, so these subclasses are not used for NVFP4/MX until `BlockRound` takes a custom rounder. `DASR` / `Hestia` are not `StraightThroughEstimator`; they never call `cpp_round`. For a full NVFP4 + DASR wrap, see [Example](block-dasr.md).
+Do not wrap `Round` inside another `Function` — nested `Round` on the same tensor raises `Double quantization detected.` Pass a `Round` subclass as `rounder=` on `BlockRound` (replacement, not nesting). `DASR` / `Hestia` are not `StraightThroughEstimator`; they never call `cpp_round`. NVFP4 + DASR: [Example](block-dasr.md).
 
