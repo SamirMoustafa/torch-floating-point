@@ -228,7 +228,7 @@ class RDFS(StraightThroughEstimator):
         if x.grad_fn is not None and x.grad_fn.__class__.__name__ == ctx.__class__.__name__:
             raise RuntimeError("Double quantization detected.")
         in_range = (x >= ctx.min) & (x <= ctx.max)
-        a = A * (2.0 ** 0.5) * torch.pi
+        a = A * (2.0**0.5) * torch.pi
         c = torch.cos(torch.pi * (x + y))
         jac = (1 - a * c) / (1 + a * c)
         grad_x = grad_output * jac * in_range.to(dtype=grad_output.dtype)
