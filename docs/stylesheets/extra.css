@@ -99,21 +99,21 @@
   display: block;
 }
 
-.md-typeset .ewgs-widget {
+.md-typeset .ste-widget {
   margin: 0.85rem 0 1.35rem;
 }
 
-.md-typeset .ewgs-widget__stage {
+.md-typeset .ste-widget__stage {
   width: 100%;
 }
 
-.md-typeset .ewgs-widget canvas {
+.md-typeset .ste-widget canvas {
   display: block;
   width: 100%;
   height: auto;
 }
 
-.md-typeset .ewgs-widget__controls {
+.md-typeset .ste-widget__controls {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -121,19 +121,19 @@
   margin-top: 0.55rem;
 }
 
-.md-typeset .ewgs-widget__controls label {
+.md-typeset .ste-widget__controls label {
   font-weight: 600;
   margin: 0;
 }
 
-.md-typeset .ewgs-widget__value {
+.md-typeset .ste-widget__value {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   min-width: 4.5rem;
   text-align: right;
 }
 
-.md-typeset .ewgs-widget__slider {
+.md-typeset .ste-widget__slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
@@ -144,7 +144,7 @@
   outline: none;
 }
 
-.md-typeset .ewgs-widget__slider::-webkit-slider-thumb {
+.md-typeset .ste-widget__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 1rem;
@@ -155,7 +155,7 @@
   cursor: pointer;
 }
 
-.md-typeset .ewgs-widget__slider::-moz-range-thumb {
+.md-typeset .ste-widget__slider::-moz-range-thumb {
   width: 1rem;
   height: 1rem;
   border: 0;
@@ -164,14 +164,14 @@
   cursor: pointer;
 }
 
-.md-typeset .ewgs-widget__chips {
+.md-typeset .ste-widget__chips {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
 
-.md-typeset .ewgs-widget__chip {
+.md-typeset .ste-widget__chip {
   font: inherit;
   font-size: 0.72rem;
   line-height: 1.2;
@@ -183,16 +183,16 @@
   cursor: pointer;
 }
 
-.md-typeset .ewgs-widget__chip:hover {
+.md-typeset .ste-widget__chip:hover {
   border-color: var(--tfp-orange);
 }
 
-.md-typeset .ewgs-widget__chip.is-active {
+.md-typeset .ste-widget__chip.is-active {
   color: var(--tfp-orange);
   border-color: var(--tfp-orange);
 }
 
-.md-typeset .ewgs-widget__hint {
+.md-typeset .ste-widget__hint {
   grid-column: 1 / -1;
   margin: 0;
   font-size: 0.78rem;

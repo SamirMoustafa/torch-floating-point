@@ -1,6 +1,6 @@
 # Block scale
 
-Shared per-block scale: `y_i = Round_elem(x_i / s) * s`.
+Shared per-block scale: \(y_i = \bigl\lfloor x_i/s \bigr\rceil\, s\).
 
 [OCP MX](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) ([Rouhani et al., 2023](https://arxiv.org/abs/2310.10537)) uses UE8M0 scales over blocks of 32 (MXFP8 / MXFP4) — the same packing NVIDIA Blackwell and AMD CDNA4 implement. **NVFP4** is NVIDIA’s variant: block 16 and E4M3 scales ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)). See [Formats](formats.md#references) for the full reference list.
 
@@ -36,7 +36,7 @@ Last dimension of `x` must be divisible by `block_size`.
 ## Absmax vs learnable
 
 - **Absmax** (`scales is None`): `s = encode(amax / M).detach()` — straight-through on `x` only.
-- **Learnable** (`scales=`): same element round; `y = e * s` so `s` gets gradients. See [Autograd](autograd.md).
+- **Learnable** (`scales=`): same element round; `y = e * s` so `s` gets gradients. See [Autograd](autograd.md). To swap the element map for DASR, wrap by hand — [Example](block-dasr.md).
 
 `return_aux=True` yields `(y, s, elems)`.
 

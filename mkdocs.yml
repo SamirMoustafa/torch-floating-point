@@ -60,6 +60,7 @@ nav:
   - Formats: formats.md
   - Block scale: block.md
   - Autograd: autograd.md
+  - Example: block-dasr.md
   - API: api.md
 
 extra:
@@ -78,7 +79,7 @@ extra_javascript:
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
   - javascripts/readthedocs.js
-  - javascripts/ewgs-slider.js
+  - javascripts/ste-slider.js
 
 markdown_extensions:
   - admonition
