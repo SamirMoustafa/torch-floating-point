@@ -143,7 +143,7 @@ Shared per-block scale: `y = (e - z) * s * s_global` with `e = Round_elem(x / (s
 OCP MX (MXFP8 / MXFP4) uses UE8M0 scales and `block_size=32`. **NVFP4** is NVIDIA-only: E2M1 + E4M3 (UE4M3) scales, `block_size=16`, plus FP32 `s_global` ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)). NVIDIA block UE8M0 uses `ue8m0_ceil`; the OCP sample is `ocp_floor`; AWS Trainium3 is `ocp_floor_x2`. Element-wise `Round(fp8_e8m0)` remains nearest. Recipe tables with source URLs: the docs.
 
 ```python
-from floating_point import BlockFormat, BlockRound, sample_block_scaled
+from floating_point import BlockFormat, BlockRound
 
 nvfp4 = BlockFormat(fp4_e2m1, fp8_e4m3fn, 16, 6.0, "nearest")
 mxfp8 = BlockFormat(fp8_e4m3fn, fp8_e8m0, 32, 448.0, "ue8m0_ceil")
@@ -154,7 +154,6 @@ y = BlockRound(nvfp4)(x, scales=learnable_s)  # grad into scales
 y = BlockRound(nvfp4)(x, s_global=tensor_scale)
 y = BlockRound(mxfp8)(x)
 y = BlockRound(nvfp4, rounder=MyRound)(x)
-x = sample_block_scaled((8, 64), nvfp4)
 ```
 
 ## Contributing
