@@ -95,6 +95,21 @@ const ESTIMATORS = {
     softForward: true,
     softMode: "hestia",
   },
+  "dasr-block": {
+    panels: 3,
+    height: 6.6,
+    padBottom: 0.09,
+    ratios: [1.45, 0.95, 1.1],
+    forwardLabel: "y = DASR(x/s) s",
+    gxYlim: [-0.2, 12.0],
+    gxStep: 2,
+    gsYlim: [-7.2, 7.2],
+    gsStep: 2,
+    format: (value) => formatNumber(value, 2),
+    softForward: true,
+    softMode: "dasr",
+    scale: 1.625,
+  },
 };
 
 function jsonUrl(root) {
@@ -226,7 +241,27 @@ function forwardSoft(x, codes, tau, mode) {
 
 function grads(spec, data, x, param) {
   if (spec.softForward) {
-    return forwardSoft(x, data.codes, param, spec.softMode);
+    const s = spec.scale ?? 1;
+    const n = x.length;
+    const u = s === 1 ? x : new Float64Array(n);
+    if (s !== 1) {
+      for (let i = 0; i < n; i++) {
+        u[i] = x[i] / s;
+      }
+    }
+    const mixed = forwardSoft(u, data.codes, param, spec.softMode);
+    if (s === 1 && spec.panels !== 3) {
+      return mixed;
+    }
+    const y = new Float64Array(n);
+    const gs = spec.panels === 3 ? new Float64Array(n) : undefined;
+    for (let i = 0; i < n; i++) {
+      y[i] = mixed.y[i] * s;
+      if (gs) {
+        gs[i] = mixed.y[i] - u[i] * mixed.gx[i];
+      }
+    }
+    return { y, gx: mixed.gx, gs };
   }
   const n = data.n;
   const y = data.y;

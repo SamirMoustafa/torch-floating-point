@@ -323,6 +323,8 @@ y = DASRRound(fp)(x)
 y.sum().backward()
 ```
 
+NVFP4 with this class and a learnable \(s\): [Example](block-dasr.md).
+
 ### Hestia example
 
 Softmax over **all** finite unique `fp.values`. That is \(\mathcal{H}\) in [Hestia](https://arxiv.org/abs/2601.20745) (Wang et al., 2026) — Hessian annealing and the mix with full precision \(p_t\) are extra state, not shown. At small \(\tau\) this matches DASR (far codes have ~0 weight). At large \(\tau\) it is not rounding: \(y\) goes to the barycenter of the format (\(\approx 0\) on E2M1). Drag \(\tau\); \(8\) is the melt.
@@ -384,5 +386,5 @@ y = HestiaRound(fp)(x)
 y.sum().backward()
 ```
 
-Do not wrap `Round` inside another `Function` — nested `Round` on the same tensor raises `Double quantization detected.` `BlockRound` instantiates `Round` internally, so these subclasses are not used for NVFP4/MX until `BlockRound` takes a custom rounder. `DASR` / `Hestia` are not `StraightThroughEstimator`; they never call `cpp_round`.
+Do not wrap `Round` inside another `Function` — nested `Round` on the same tensor raises `Double quantization detected.` `BlockRound` instantiates `Round` internally, so these subclasses are not used for NVFP4/MX until `BlockRound` takes a custom rounder. `DASR` / `Hestia` are not `StraightThroughEstimator`; they never call `cpp_round`. For a full NVFP4 + DASR wrap, see [Example](block-dasr.md).
 

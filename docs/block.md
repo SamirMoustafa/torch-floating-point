@@ -36,7 +36,7 @@ Last dimension of `x` must be divisible by `block_size`.
 ## Absmax vs learnable
 
 - **Absmax** (`scales is None`): `s = encode(amax / M).detach()` — straight-through on `x` only.
-- **Learnable** (`scales=`): same element round; `y = e * s` so `s` gets gradients. See [Autograd](autograd.md).
+- **Learnable** (`scales=`): same element round; `y = e * s` so `s` gets gradients. See [Autograd](autograd.md). To swap the element map for DASR, wrap by hand — [Example](block-dasr.md).
 
 `return_aux=True` yields `(y, s, elems)`.
 

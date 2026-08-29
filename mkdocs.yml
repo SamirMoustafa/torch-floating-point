@@ -60,6 +60,7 @@ nav:
   - Formats: formats.md
   - Block scale: block.md
   - Autograd: autograd.md
+  - Example: block-dasr.md
   - API: api.md
 
 extra:
