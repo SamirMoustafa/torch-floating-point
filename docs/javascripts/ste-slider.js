@@ -1,6 +1,5 @@
 document$.subscribe(() => {
-  const root = document.querySelector(".ewgs-widget");
-  if (root) mountEwgs(root);
+  document.querySelectorAll(".ste-widget").forEach(mountWidget);
 });
 
 const LIGHT = {
@@ -22,7 +21,57 @@ const DARK = {
   legend: "#1c2029",
 };
 
-let dataPromise;
+const dataCache = new Map();
+
+const ESTIMATORS = {
+  ewgs: {
+    panels: 3,
+    height: 6.6,
+    padBottom: 0.09,
+    ratios: [1.45, 0.95, 1.1],
+    forwardLabel: "y = ⌊x/s⌉ s",
+    gxYlim: [-0.15, 2.25],
+    gxStep: 0.5,
+    gsYlim: [-7.2, 7.2],
+    gsStep: 2,
+    format: formatDelta,
+    jac(x, y, xmin, xmax, delta) {
+      const gate = x >= xmin && x <= xmax ? 1 : 0;
+      return gate * (1 + delta * (x - y));
+    },
+  },
+  reste: {
+    panels: 2,
+    height: 4.6,
+    padBottom: 0.11,
+    ratios: [1.45, 1.0],
+    forwardLabel: "y = ⌊x⌉",
+    gxYlim: [-0.2, 6.0],
+    gxStep: 1,
+    format: (value) => formatNumber(value, 2),
+    jac(x, _y, xmin, xmax, o) {
+      const gate = x >= xmin && x <= xmax ? 1 : 0;
+      const ax = Math.max(Math.abs(x), 1e-4);
+      return gate * (1 / o) * Math.pow(ax, 1 / o - 1);
+    },
+  },
+  rdfs: {
+    panels: 2,
+    height: 4.6,
+    padBottom: 0.11,
+    ratios: [1.45, 1.0],
+    forwardLabel: "y = ⌊x⌉",
+    gxYlim: [-1.0, 30.0],
+    gxStep: 5,
+    format: (value) => formatNumber(value, 3),
+    jac(x, y, xmin, xmax, a) {
+      const gate = x >= xmin && x <= xmax ? 1 : 0;
+      const amp = a * Math.SQRT2 * Math.PI;
+      const c = Math.cos(Math.PI * (x + y));
+      return gate * ((1 - amp * c) / (1 + amp * c));
+    },
+  },
+};
 
 function jsonUrl(root) {
   const attr = root.getAttribute("data-src");
@@ -30,7 +79,7 @@ function jsonUrl(root) {
     return new URL(attr, document.location.href).href;
   }
   for (const script of document.querySelectorAll("script[src]")) {
-    if (script.src.includes("ewgs-slider.js")) {
+    if (script.src.includes("ste-slider.js") || script.src.includes("ewgs-slider.js")) {
       return new URL("../assets/ewgs-slider.json", script.src).href;
     }
   }
@@ -38,15 +87,19 @@ function jsonUrl(root) {
 }
 
 function loadData(root) {
-  if (!dataPromise) {
-    dataPromise = fetch(jsonUrl(root)).then((response) => {
-      if (!response.ok) {
-        throw new Error("ewgs-slider.json " + response.status);
-      }
-      return response.json();
-    });
+  const url = jsonUrl(root);
+  if (!dataCache.has(url)) {
+    dataCache.set(
+      url,
+      fetch(url).then((response) => {
+        if (!response.ok) {
+          throw new Error("ewgs-slider.json " + response.status);
+        }
+        return response.json();
+      }),
+    );
   }
-  return dataPromise;
+  return dataCache.get(url);
 }
 
 function formatDelta(delta) {
@@ -65,6 +118,10 @@ function formatDelta(delta) {
   return exp < 0 ? `10⁻${sup}` : `10${sup}`;
 }
 
+function formatNumber(value, digits) {
+  return String(Number(value.toFixed(digits)));
+}
+
 function linspace(lo, hi, n) {
   const x = new Float64Array(n);
   const step = (hi - lo) / (n - 1);
@@ -74,14 +131,13 @@ function linspace(lo, hi, n) {
   return x;
 }
 
-function grads(data, x, delta) {
+function grads(spec, data, x, param) {
   const n = data.n;
   const y = data.y;
   const gx = new Float64Array(n);
   const gs = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    const gate = x[i] >= data.xmin && x[i] <= data.xmax ? 1 : 0;
-    const jac = gate * (1 + delta * (x[i] - y[i]));
+    const jac = spec.jac(x[i], y[i], data.xmin, data.xmax, param);
     gx[i] = jac;
     gs[i] = y[i] - x[i] * jac;
   }
@@ -247,11 +303,11 @@ function yLabel(ctx, rect, pal, text) {
   ctx.restore();
 }
 
-function render(canvas, data, x, delta) {
+function render(canvas, spec, data, x, param) {
   const pal = palette();
   const dpr = window.devicePixelRatio || 1;
   const cssW = Math.max(320, canvas.clientWidth || canvas.parentElement.clientWidth);
-  const cssH = cssW * (6.6 / 8.4);
+  const cssH = cssW * (spec.height / 8.4);
   canvas.style.height = cssH + "px";
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
@@ -262,21 +318,20 @@ function render(canvas, data, x, delta) {
   const padL = 0.16 * cssW;
   const padR = 0.02 * cssW;
   const padT = 0.01 * cssH;
-  const padB = 0.09 * cssH;
+  const padB = spec.padBottom * cssH;
   const gap = 0.02 * cssH;
-  const innerH = cssH - padT - padB - 2 * gap;
-  const ratios = [1.45, 0.95, 1.1];
-  const sum = ratios[0] + ratios[1] + ratios[2];
+  const innerH = cssH - padT - padB - (spec.panels - 1) * gap;
+  const sum = spec.ratios.reduce((a, b) => a + b, 0);
   const plotW = cssW - padL - padR;
   let y0 = padT;
-  const rects = ratios.map((ratio) => {
+  const rects = spec.ratios.map((ratio) => {
     const h = (ratio / sum) * innerH;
     const rect = { x: padL, y: y0, w: plotW, h };
     y0 += h + gap;
     return rect;
   });
 
-  const { gx, gs } = grads(data, x, delta);
+  const { gx, gs } = grads(spec, data, x, param);
   const xlo = data.lo;
   const xhi = data.hi;
   const xticks = ticks(-10, 10, 2.5);
@@ -293,32 +348,34 @@ function render(canvas, data, x, delta) {
       ],
       legend: [
         { label: "x", color: pal.muted, lw: 1.15, dash: [6, 4] },
-        { label: "y = Round(x/s) s", color: pal.orange, lw: 2.2 },
+        { label: spec.forwardLabel, color: pal.orange, lw: 2.2 },
       ],
     },
     {
       rect: rects[1],
-      ylim: [-0.15, 2.25],
-      ystep: 0.5,
+      ylim: spec.gxYlim,
+      ystep: spec.gxStep,
       ylabel: "∂y/∂x",
-      xlabel: false,
+      xlabel: spec.panels === 2,
       series: [{ y: gx, color: pal.green, lw: 2.2, dash: [] }],
       legend: [{ label: "∂y/∂x", color: pal.green, lw: 2.2 }],
     },
-    {
+  ];
+  if (spec.panels === 3) {
+    panels.push({
       rect: rects[2],
-      ylim: [-7.2, 7.2],
-      ystep: 2,
+      ylim: spec.gsYlim,
+      ystep: spec.gsStep,
       ylabel: "∂y/∂s",
       xlabel: true,
       series: [{ y: gs, color: pal.blue, lw: 2.0, dash: [] }],
       legend: [{ label: "∂y/∂s", color: pal.blue, lw: 2.0 }],
-    },
-  ];
+    });
+  }
 
   for (const panel of panels) {
     const [ylo, yhi] = panel.ylim;
-        const yticks = ticks(ylo, yhi, panel.ystep);
+    const yticks = ticks(ylo, yhi, panel.ystep);
     panelChrome(ctx, panel.rect, pal, xlo, xhi, ylo, yhi, xticks, yticks, panel.xlabel);
     ctx.save();
     ctx.beginPath();
@@ -345,38 +402,39 @@ function render(canvas, data, x, delta) {
   ctx.fillText("x", padL + plotW / 2, cssH - 4);
 }
 
-function syncChips(root, delta) {
-  for (const chip of root.querySelectorAll("[data-delta]")) {
-    const value = Number(chip.getAttribute("data-delta"));
-    chip.classList.toggle("is-active", Math.abs(value - delta) < 1e-9);
+function syncChips(root, value) {
+  for (const chip of root.querySelectorAll("[data-value]")) {
+    const chipValue = Number(chip.getAttribute("data-value"));
+    chip.classList.toggle("is-active", Math.abs(chipValue - value) < 1e-9);
   }
 }
 
-function mountEwgs(root) {
-  if (root.dataset.ewgsReady === "1") {
+function mountWidget(root) {
+  if (root.dataset.steReady === "1") {
     return;
   }
-  root.dataset.ewgsReady = "1";
+  const spec = ESTIMATORS[root.getAttribute("data-estimator")];
   const canvas = root.querySelector("canvas");
   const slider = root.querySelector("input[type='range']");
-  const output = root.querySelector("[data-ewgs-value]");
-  if (!canvas || !slider || !output) {
+  const output = root.querySelector("[data-ste-value]");
+  if (!spec || !canvas || !slider || !output) {
     return;
   }
+  root.dataset.steReady = "1";
 
   loadData(root)
     .then((data) => {
       const x = linspace(data.lo, data.hi, data.n);
       const draw = () => {
-        const delta = Number(slider.value);
-        output.textContent = formatDelta(delta);
-        syncChips(root, delta);
-        render(canvas, data, x, delta);
+        const param = Number(slider.value);
+        output.textContent = spec.format(param);
+        syncChips(root, param);
+        render(canvas, spec, data, x, param);
       };
       slider.addEventListener("input", draw);
-      for (const chip of root.querySelectorAll("[data-delta]")) {
+      for (const chip of root.querySelectorAll("[data-value]")) {
         chip.addEventListener("click", () => {
-          slider.value = chip.getAttribute("data-delta");
+          slider.value = chip.getAttribute("data-value");
           draw();
         });
       }
