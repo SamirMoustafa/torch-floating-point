@@ -34,8 +34,7 @@ def assert_codebook_matches(fp: FloatingPoint, golden):
             assert math.isnan(got), f"code {code}: expected NaN, got {got}"
         elif isinstance(expected, float) and math.isinf(expected):
             assert math.isinf(got) and math.copysign(1.0, got) == math.copysign(1.0, expected), (
-                f"code {code}: expected {expected}, got {got}"
-            )
+                f"code {code}: expected {expected}, got {got}")
         else:
             assert got == float(expected), f"code {code}: expected {expected}, got {got}"
 
@@ -66,8 +65,7 @@ class TestNvidiaCodecGoldens(unittest.TestCase):
     e2m1 = FloatingPoint(sign_bits=1, exponent_bits=2, mantissa_bits=1, bias=1, bits=4, reserved_exponent=False)
     e4m3fn = FloatingPoint(
         sign_bits=1, exponent_bits=4, mantissa_bits=3, bias=7, bits=8,
-        max_mantissa_at_max_exponent=6, reserved_exponent=False,
-    )
+        max_mantissa_at_max_exponent=6, reserved_exponent=False)
     e5m2 = FloatingPoint(sign_bits=1, exponent_bits=5, mantissa_bits=2, bias=15, bits=8, reserved_exponent=True)
     e8m0 = FloatingPoint(sign_bits=0, exponent_bits=8, mantissa_bits=0, bias=127, bits=8, reserved_exponent=True)
 

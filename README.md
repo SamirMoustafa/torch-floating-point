@@ -110,7 +110,7 @@ for epoch in range(5):
 
 ## Common layouts (OFP8 / MX)
 
-E4M3 and E5M2 are [OCP OFP8](https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-ofp8-revision-1-1-final-pdf) encodings ([Micikevicius et al., 2022](https://arxiv.org/abs/2209.05433)). E2M1 and UE8M0 come from [OCP MX](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) ([Rouhani et al., 2023](https://arxiv.org/abs/2310.10537)). CUDA `__nv_*` comments below are aliases; decode goldens match `cuda_fp4.h` / `cuda_fp8.h`. AMD MI300 FP8 is HIP **FNUZ**, not OCP. For block-scaled `x = e * s_block`, use `BlockRound`.
+E4M3 and E5M2 are [OCP OFP8](https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-ofp8-revision-1-1-final-pdf) encodings ([Micikevicius et al., 2022](https://arxiv.org/abs/2209.05433)). E2M1 and UE8M0 come from [OCP MX](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) ([Rouhani et al., 2023](https://arxiv.org/abs/2310.10537)). CUDA `__nv_*` comments below are aliases; decode goldens match `cuda_fp4.h` / `cuda_fp8.h`. AMD MI300 FP8 is HIP **FNUZ**, not OCP. For block-scaled `y = (e - z) * s * s_global`, use `BlockRound`. Constructors for FP6, E1M2, UE4M3, FNUZ, INT, and BFP mag are in the docs (not package exports).
 
 ```python
 from floating_point import FloatingPoint
@@ -138,29 +138,23 @@ fp8_e8m0 = FloatingPoint(sign_bits=0, exponent_bits=8, mantissa_bits=0, bias=127
 
 ### Block-scaled Round (NVFP4 / MX)
 
-Shared per-block scale: `y_i = Round_elem(x_i / s) * s`. Absmax mode detaches `s` (STE on `x` only); pass `scales=` for learnable QAT scales with gradients.
+Shared per-block scale: `y = (e - z) * s * s_global` with `e = Round_elem(x / (s * s_global) + z)`. Absmax mode detaches `s` (STE on `x` only); pass `scales=` for learnable QAT scales with gradients. `s_global=` is the optional second-level tensor scale (NVFP4).
 
-OCP MX (MXFP8 / MXFP4) uses UE8M0 scales and `block_size=32` — NVIDIA Blackwell and AMD CDNA4. **NVFP4** is NVIDIA-only: E2M1 + E4M3 scales, `block_size=16` ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)).
-
-UE8M0 **block** scale encode rounds **up** to the next power of two (OCP MX). Element-wise `Round(fp8_e8m0)` remains nearest.
+OCP MX (MXFP8 / MXFP4) uses UE8M0 scales and `block_size=32`. **NVFP4** is NVIDIA-only: E2M1 + E4M3 (UE4M3) scales, `block_size=16`, plus FP32 `s_global` ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)). NVIDIA block UE8M0 uses `ue8m0_ceil`; the OCP sample is `ocp_floor`; AWS Trainium3 is `ocp_floor_x2`. Element-wise `Round(fp8_e8m0)` remains nearest. Recipe tables with source URLs: the docs.
 
 ```python
-from floating_point import BlockRound, FloatingPoint, block_round, sample_block_scaled
+from floating_point import BlockFormat, BlockRound, sample_block_scaled
 
-fp4_e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
-fp8_e4m3fn = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
-fp8_e8m0 = FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)
+nvfp4 = BlockFormat(fp4_e2m1, fp8_e4m3fn, 16, 6.0, "nearest")
+mxfp8 = BlockFormat(fp8_e4m3fn, fp8_e8m0, 32, 448.0, "ue8m0_ceil")
+mxfp8_ocp = BlockFormat(fp8_e4m3fn, fp8_e8m0, 32, 448.0, "ocp_floor")
 
-# NVFP4: E2M1 elements + E4M3 scales, block_size=16
-nvfp4 = BlockRound(fp4_e2m1, fp8_e4m3fn, M=6, block_size=16)
-y = nvfp4(x)  # absmax scales, STE on x only
-y = nvfp4(x, scales=learnable_s)  # grad into scales
-
-# MXFP8: E4M3 elements + UE8M0 scales, block_size=32
-mxfp8 = BlockRound(fp8_e4m3fn, fp8_e8m0, M=448, block_size=32)
-
-# Recoverable codebook samples (absmax round-trip ≈ identity)
-x = sample_block_scaled((8, 64), fp4_e2m1, fp8_e4m3fn, M=6, block_size=16)
+y = BlockRound(nvfp4)(x)  # absmax scales, STE on x only
+y = BlockRound(nvfp4)(x, scales=learnable_s)  # grad into scales
+y = BlockRound(nvfp4)(x, s_global=tensor_scale)
+y = BlockRound(mxfp8)(x)
+y = BlockRound(nvfp4, rounder=MyRound)(x)
+x = sample_block_scaled((8, 64), nvfp4)
 ```
 
 ## Contributing

@@ -7,7 +7,7 @@ except ImportError:  # pragma: no cover - extension not built yet
     cpp_inplace = None
     cpp_round = None
 
-from .block_round import BlockRound, block_round, sample_block_scaled
+from .block_round import BlockFormat, BlockRound, block_round, sample_block_scaled
 from .round import Round, StraightThroughEstimator
 
 _EXTENSION_MISSING = "floating_point C++ extension is not built; install with pip install -e ."
@@ -31,17 +31,11 @@ def inplace(input, exponent_bits, mantissa_bits, bias, reserved_exponent=True, m
         raise RuntimeError(_EXTENSION_MISSING)
     if max_mantissa_at_max_exponent is None:
         max_mantissa_at_max_exponent = (1 << mantissa_bits) - 1
-    return cpp_inplace(
-        input,
-        exponent_bits,
-        mantissa_bits,
-        bias,
-        int(reserved_exponent),
-        max_mantissa_at_max_exponent,
-    )
+    return cpp_inplace(input, exponent_bits, mantissa_bits, bias, int(reserved_exponent), max_mantissa_at_max_exponent)
 
 
 __all__ = [
+    "BlockFormat",
     "BlockRound",
     "FloatingPoint",
     "Round",
