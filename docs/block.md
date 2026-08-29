@@ -43,8 +43,8 @@ x = sample_block_scaled((8, 64), nvfp4)
 | Name | Formula | Used by |
 | --- | --- | --- |
 | `nearest` | \(s = \mathrm{Round}(\mathrm{amax}/M)\) into `scale_fp` | NVFP4 micro-scale |
-| `ue8m0_ceil` | \(s = 2^{\lceil\log_2(\mathrm{amax}/M)\rceil}\) | NVIDIA TE / CUDA MX ([cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types), [TE MXFP8](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/features/low_precision_training/mxfp8/mxfp8.html)) |
-| `ue8m0_floor` | \(s = 2^{\lfloor\log_2(\mathrm{amax}/M)\rfloor}\) | OCP “should” round-down counterpart |
+| `ue8m0_ceil` | \(s = 2^{\lceil\log_2(\mathrm{amax}/M)\rceil}\) (float `ceil(log2)`, not TE `float_to_e8m0`) | NVIDIA TE / CUDA MX ([cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types), [TE MXFP8](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/features/low_precision_training/mxfp8/mxfp8.html)) |
+| `ue8m0_floor` | \(s = 2^{\lfloor\log_2(\mathrm{amax}/M)\rfloor}\) (floor twin of `ue8m0_ceil`, not OCP §6.3) | same UE8M0 path as ceil |
 | `ocp_floor` | \(X = 2^{\lfloor\log_2 a_{\max}\rfloor - e_{\max}}\) | OCP MX v1.0 §6.3 sample ([PDF](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf), [arXiv:2310.10537](https://arxiv.org/abs/2310.10537)) |
 | `ocp_floor_x2` | \(X = 2^{\lfloor\log_2 a_{\max}\rfloor - (e_{\max}-1)}\) | AWS `quantize_mx` ([NKI](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/nki/api/generated/nki.isa.quantize_mx.html)) |
 | `amax_over_M` | \(s = \mathrm{amax}/M\) clamped to `scale_fp` range (no codebook snap) | Hopper / Qwix / Ironwood software FP32 scales |

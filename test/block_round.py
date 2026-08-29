@@ -19,9 +19,11 @@ MXFP8 = BlockFormat(E4M3, UE8M0, 32, 448.0, "ue8m0_ceil")
 HOPPER_1D = BlockFormat(E4M3, UE8M0, 128, 448.0, "amax_over_M")
 
 
-class ZeroRound(Round):
+class ConstThreeRound(Round):
+    """Constant map so reconstruct must be ``y = 3 * s``, not raw ``x``."""
+
     def forward(self, x):
-        return torch.zeros_like(x)
+        return torch.full_like(x, 3.0)
 
 
 class Int4Round(Round):
@@ -74,10 +76,14 @@ class TestBlockRoundNVFP4(unittest.TestCase):
     @parameterized.expand([(d,) for d in DEVICES])
     def test_custom_rounder_is_used(self, device):
         x = torch.randn(2, 32, device=device)
-        y = block_round(x, NVFP4, rounder=ZeroRound)
-        self.assertTrue(torch.equal(y, torch.zeros_like(x)))
-        y = BlockRound(NVFP4, rounder=ZeroRound)(x)
-        self.assertTrue(torch.equal(y, torch.zeros_like(x)))
+        y, s, elems = block_round(x, NVFP4, rounder=ConstThreeRound, return_aux=True)
+        self.assertTrue(torch.equal(elems, torch.full_like(elems, 3.0)))
+        k = 16
+        s_exp = s.expand(*s.shape[:-1], k).reshape_as(y)
+        self.assertTrue(torch.allclose(y, 3.0 * s_exp, rtol=0, atol=0))
+        y2, s2, e2 = BlockRound(NVFP4, rounder=ConstThreeRound)(x, return_aux=True)
+        self.assertTrue(torch.equal(e2, torch.full_like(e2, 3.0)))
+        self.assertTrue(torch.allclose(y2, 3.0 * s2.expand(*s2.shape[:-1], k).reshape_as(y2), rtol=0, atol=0))
 
     def test_bad_block_size_raises(self):
         x = torch.randn(3, 10)
@@ -107,6 +113,7 @@ class TestBlockRoundMXFP8(unittest.TestCase):
         amax = torch.tensor([[1.5 * 448.0]], dtype=torch.float32, device=device)
         s = encode_scale(amax, MXFP8)
         self.assertEqual(float(s), 2.0)
+        self.assertLessEqual(672.0, 2.0 * 448.0)
 
 
 class TestBlockRoundClass(unittest.TestCase):
@@ -137,6 +144,7 @@ class TestEncodePolicies(unittest.TestCase):
         rows = [
             (256.0, 1.0, 2.0, 1.0, 0.5, 256.0 / 448.0),
             (448.0, 1.0, 2.0, 1.0, 1.0, 1.0),
+            (500.0, 1.0, 2.0, 2.0, 1.0, 500.0 / 448.0),
             (672.0, 2.0, 4.0, 2.0, 1.0, 1.5),
             (1024.0, 4.0, 8.0, 4.0, 2.0, 1024.0 / 448.0)]
         floor_s = BlockFormat(E4M3, UE8M0, 32, 448.0, "ocp_floor")
@@ -160,6 +168,30 @@ class TestEncodePolicies(unittest.TestCase):
         self.assertAlmostEqual(float(s.reshape(-1)[0]), 1.5, places=5)
         self.assertAlmostEqual(float(y[0, 0]), 448.0 * 1.5, places=3)
 
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_pad_tensor_s_global_no_nan(self, device):
+        spec = BlockFormat(E4M3, UE8M0, 4, 448.0, "amax_over_M", pad="zero")
+        x = torch.zeros(1, 6, device=device)
+        x[0, 0] = 448.0
+        x[0, 4] = 224.0
+        y, s, _ = block_round(x, spec, s_global=torch.ones_like(x), return_aux=True)
+        self.assertTrue(torch.allclose(s.reshape(-1).cpu(), torch.tensor([1.0, 0.5]), rtol=0, atol=0))
+        self.assertTrue(torch.isfinite(y).all())
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_s_global_in_absmax(self, device):
+        x = torch.zeros(1, 128, device=device)
+        x[0, 0] = 896.0
+        y, s, e = block_round(x, HOPPER_1D, s_global=2.0, return_aux=True)
+        self.assertAlmostEqual(float(s.reshape(-1)[0]), 1.0, places=5)
+        self.assertAlmostEqual(float(e[0, 0]), 448.0, places=5)
+        self.assertAlmostEqual(float(y[0, 0]), 448.0 * 1.0 * 2.0, places=3)
+
+    def test_s_global_zero_raises(self):
+        x = torch.randn(2, 32)
+        with self.assertRaises(ValueError):
+            block_round(x, NVFP4, s_global=0.0)
+
 
 class TestTwoD(unittest.TestCase):
     @parameterized.expand([(d,) for d in DEVICES])
@@ -181,6 +213,19 @@ class TestTwoD(unittest.TestCase):
         with self.assertRaises(ValueError):
             block_round(x, along_last)
 
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_real_2d_tiles(self, device):
+        m = 2.0
+        spec = BlockFormat(E4M3, UE8M0, (2, 2), m, "amax_over_M")
+        x = torch.zeros(4, 4, device=device)
+        x[0, 0] = 10.0
+        x[0, 2] = 8.0
+        x[2, 0] = 4.0
+        x[2, 2] = 2.0
+        _, s, _ = block_round(x, spec, return_aux=True)
+        want = torch.tensor([[10.0 / m, 8.0 / m], [4.0 / m, 2.0 / m]], device=device)
+        self.assertTrue(torch.allclose(s.squeeze(), want, rtol=0, atol=1e-6))
+
 
 class TestAffineInt4(unittest.TestCase):
     @parameterized.expand([(d,) for d in DEVICES])
@@ -193,16 +238,39 @@ class TestAffineInt4(unittest.TestCase):
         y = block_round(x, spec, scales=s)
         self.assertTrue(torch.allclose(x, y, rtol=0, atol=1e-6))
 
+    def test_absmax_zero_point_requires_scales(self):
+        spec = BlockFormat(E2M1, E4M3, 16, 6.0, "nearest", zero_point=1.0)
+        x = torch.zeros(1, 16)
+        with self.assertRaises(ValueError):
+            block_round(x, spec)
+
     @parameterized.expand([(d,) for d in DEVICES])
     def test_signed_peak_q4_0(self, device):
         spec = BlockFormat(E2M1, E4M3, 32, 8.0, "signed_peak")
         x = torch.zeros(1, 32, device=device)
-        x[0, 0] = 4.0
-        x[0, 1] = -2.0
+        x[0, 0] = -4.0
+        x[0, 1] = 2.0
         y, s, _ = block_round(x, spec, rounder=Int4Round, return_aux=True)
-        self.assertAlmostEqual(float(s.reshape(-1)[0]), -0.5, places=5)
-        self.assertAlmostEqual(float(y[0, 0]), 4.0, places=5)
-        self.assertAlmostEqual(float(y[0, 1]), -2.0, places=5)
+        self.assertAlmostEqual(float(s.reshape(-1)[0]), 0.5, places=5)
+        self.assertAlmostEqual(float(y[0, 0]), -4.0, places=5)
+        self.assertAlmostEqual(float(y[0, 1]), 2.0, places=5)
+
+
+class TestSamplerContract(unittest.TestCase):
+    def test_rejects_zero_point(self):
+        spec = BlockFormat(E2M1, E4M3, 16, 6.0, "nearest", zero_point=1.0)
+        with self.assertRaises(ValueError):
+            sample_block_scaled((4, 64), spec)
+
+    def test_rejects_ocp_floor_x2(self):
+        spec = BlockFormat(E4M3, UE8M0, 32, 448.0, "ocp_floor_x2")
+        with self.assertRaises(ValueError):
+            sample_block_scaled((2, 32), spec)
+
+    def test_rejects_signed_peak(self):
+        spec = BlockFormat(E2M1, E4M3, 32, 8.0, "signed_peak")
+        with self.assertRaises(ValueError):
+            sample_block_scaled((1, 32), spec)
 
 
 if __name__ == "__main__":

@@ -10,14 +10,8 @@ from floating_point.data_types import FloatingPoint
 from floating_point.round import Round
 
 _SCALE_ENCODES = frozenset(
-    {
-        "nearest",
-        "ue8m0_ceil",
-        "ue8m0_floor",
-        "ocp_floor",
-        "ocp_floor_x2",
-        "amax_over_M",
-        "signed_peak"})
+    {"nearest", "ue8m0_ceil", "ue8m0_floor", "ocp_floor", "ocp_floor_x2", "amax_over_M", "signed_peak"}
+)
 _PADS = frozenset({"error", "zero"})
 _TILE_RANK = 2
 _BlockSize = Union[int, Tuple[int, int]]
@@ -118,7 +112,9 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
     encode = spec.scale_encode
     if encode == "signed_peak":
         raw = torch.where(stat == 0, torch.full_like(stat, lo), stat / (-spec.M))
-        return Round(scale_fp)(raw)
+        s = Round(scale_fp)(raw)
+        sign = torch.where(raw == 0, torch.ones_like(raw), torch.sign(raw))
+        return torch.where(s == 0, sign * lo, s)
     if encode == "ocp_floor":
         exp = torch.floor(_log2_clamp(stat, lo)) - _emax_elem(spec.elem_fp)
         return _pow2_from_unbiased_exp(exp, scale_fp)
@@ -208,7 +204,8 @@ def _layout_for(shape: Tuple[int, ...], spec: BlockFormat) -> _Layout:
         _TILE_RANK,
         sizes,
         (height + pad_h) // h,
-        (width + pad_w) // w)
+        (width + pad_w) // w,
+    )
 
 
 def _permute(x: Tensor, layout: _Layout) -> Tensor:
@@ -223,14 +220,14 @@ def _unpermute(x: Tensor, layout: _Layout) -> Tensor:
     return x.permute(layout.inv)
 
 
-def _pad_work(x: Tensor, layout: _Layout) -> Tensor:
+def _pad_work(x: Tensor, layout: _Layout, value: float = 0.0) -> Tensor:
     if layout.nd == 1:
         if layout.pad_w == 0:
             return x
-        return pad_nd(x, (0, layout.pad_w))
+        return pad_nd(x, (0, layout.pad_w), value=value)
     if layout.pad_h == 0 and layout.pad_w == 0:
         return x
-    return pad_nd(x, (0, layout.pad_w, 0, layout.pad_h))
+    return pad_nd(x, (0, layout.pad_w, 0, layout.pad_h), value=value)
 
 
 def _crop_work(x: Tensor, layout: _Layout) -> Tensor:
@@ -286,7 +283,8 @@ def _normalize_scales(scales: Tensor, layout: _Layout) -> Tensor:
             return scales.unsqueeze(-1)
         raise ValueError(
             f"scales must have shape (..., n_blocks) or (..., n_blocks, 1) "
-            f"with n_blocks={n_blocks}; got {tuple(scales.shape)}")
+            f"with n_blocks={n_blocks}; got {tuple(scales.shape)}"
+        )
     n_h, n_w = layout.n_h, layout.n_w
     if scales.shape[-4:] == (n_h, 1, n_w, 1):
         return scales
@@ -294,7 +292,14 @@ def _normalize_scales(scales: Tensor, layout: _Layout) -> Tensor:
         return scales.unsqueeze(-2).unsqueeze(-1)
     raise ValueError(
         f"scales must have shape (..., n_h, n_w) or (..., n_h, 1, n_w, 1) "
-        f"with n_h={n_h}, n_w={n_w}; got {tuple(scales.shape)}")
+        f"with n_h={n_h}, n_w={n_w}; got {tuple(scales.shape)}"
+    )
+
+
+def _require_nonzero_finite_sg(g: Tensor) -> Tensor:
+    if not torch.isfinite(g).all() or bool((g == 0).any()):
+        raise ValueError("s_global must be finite and non-zero")
+    return g
 
 
 def _sg_blocks(
@@ -309,13 +314,14 @@ def _sg_blocks(
     else:
         g = s_global
     if not isinstance(g, Tensor):
-        return blocks.new_tensor(float(g))
+        return _require_nonzero_finite_sg(blocks.new_tensor(float(g)))
+    g = g.to(device=blocks.device, dtype=blocks.dtype)
+    _require_nonzero_finite_sg(g)
     if g.ndim == 0 or g.numel() == 1:
-        return g.to(device=blocks.device, dtype=blocks.dtype)
+        return g
     if tuple(g.shape) != tuple(x.shape):
         raise ValueError(f"s_global tensor shape {tuple(g.shape)} must be scalar or match x {tuple(x.shape)}")
-    g = g.to(device=blocks.device, dtype=blocks.dtype)
-    return _as_blocks(_pad_work(_permute(g, layout), layout), layout)
+    return _as_blocks(_pad_work(_permute(g, layout), layout, value=1.0), layout)
 
 
 def _to_orig(y_blocks: Tensor, layout: _Layout) -> Tensor:
@@ -338,6 +344,8 @@ def block_round(
     """
     if spec.M <= 0:
         raise ValueError(f"M must be positive, got {spec.M}")
+    if scales is None and spec.zero_point != 0:
+        raise ValueError("zero_point != 0 requires scales=; absmax ignores the affine offset")
     layout = _layout_for(tuple(x.shape), spec)
     work = _pad_work(_permute(x, layout), layout)
     blocks = _as_blocks(work, layout)
@@ -390,7 +398,16 @@ def sample_block_scaled(
     dtype: torch.dtype = torch.float32,
     s_global: Optional[Union[Tensor, float]] = None,
 ) -> Tensor:
-    """Draw recoverable codebook blocks ``x = (e - z) * s * s_g`` with some ``|e| = M``."""
+    """Draw absmax-recoverable blocks ``x = e * s * s_g`` with some ``|e| = M``.
+
+    Requires ``zero_point=0`` and ``scale_encode`` in
+    ``{nearest, ue8m0_ceil, ue8m0_floor, ocp_floor, amax_over_M}``.
+    """
+    if spec.zero_point != 0 or spec.scale_encode in {"ocp_floor_x2", "signed_peak"}:
+        raise ValueError(
+            "sample_block_scaled requires zero_point=0 and an absmax-recoverable "
+            f"scale_encode; got zero_point={spec.zero_point}, scale_encode={spec.scale_encode!r}"
+        )
     shape_t = tuple(shape)
     layout = _layout_for(shape_t, spec)
     if layout.pad_h or layout.pad_w:

@@ -35,19 +35,19 @@ Default \(z=0\), \(s_g=1\) recovers \(y_i = \lfloor x_i/s\rceil\,s\). Absmax mod
 \[
 \frac{\partial y_i}{\partial x_i}
 =
-\mathbf{1}_{x_i/s \,\in\, [e_{\min},\, e_{\max}]},
+\mathbf{1}_{x_i/(s s_g) \,\in\, [e_{\min},\, e_{\max}]},
 \qquad
 \frac{\partial y_i}{\partial s}
 =
 \begin{cases}
-\left\lfloor x_i/s \right\rceil - x_i/s
-  & \text{if } x_i/s \in [e_{\min},\, e_{\max}], \\[0.35em]
-\left\lfloor x_i/s \right\rceil
+\left\lfloor x_i/(s s_g) \right\rceil - x_i/(s s_g)
+  & \text{if } x_i/(s s_g) \in [e_{\min},\, e_{\max}], \\[0.35em]
+\left\lfloor x_i/(s s_g) \right\rceil
   & \text{otherwise}.
 \end{cases}
 \]
 
-The second branch is \(y = e\,s\) with \(\partial e/\partial s = 0\) (clipped STE). See [Block scale](block.md) for absmax vs `scales=`.
+The second branch is \(y = e\,s\,s_g\) with \(\partial e/\partial s = 0\) (clipped STE). Affine \(z\neq 0\) uses the same gate on \(x/(s s_g)+z\). See [Block scale](block.md) for absmax vs `scales=`.
 
 <div class="autograd-fig" markdown="span">
 ![Block-scaled Round with learnable s = 1](assets/autograd-block.svg){ .light }

@@ -21,7 +21,8 @@ def round(input, exponent_bits, mantissa_bits, bias, reserved_exponent=True, max
         bias,
         exponent_bits + mantissa_bits + 1,
         max_mantissa_at_max_exponent=max_mantissa_at_max_exponent,
-        reserved_exponent=reserved_exponent)
+        reserved_exponent=reserved_exponent,
+    )
     return StraightThroughEstimator.apply(input, dtype, dtype.minimum, dtype.maximum)
 
 
@@ -30,13 +31,7 @@ def inplace(input, exponent_bits, mantissa_bits, bias, reserved_exponent=True, m
         raise RuntimeError(_EXTENSION_MISSING)
     if max_mantissa_at_max_exponent is None:
         max_mantissa_at_max_exponent = (1 << mantissa_bits) - 1
-    return cpp_inplace(
-        input,
-        exponent_bits,
-        mantissa_bits,
-        bias,
-        int(reserved_exponent),
-        max_mantissa_at_max_exponent)
+    return cpp_inplace(input, exponent_bits, mantissa_bits, bias, int(reserved_exponent), max_mantissa_at_max_exponent)
 
 
 __all__ = [
@@ -47,4 +42,5 @@ __all__ = [
     "block_round",
     "inplace",
     "round",
-    "sample_block_scaled"]
+    "sample_block_scaled",
+]

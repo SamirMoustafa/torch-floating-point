@@ -117,4 +117,5 @@ class FloatingPoint:
             f"M{self.mantissa_bits}"
             f"B{self.bias}"
             f"MaxM{self.max_mantissa_at_max_exponent}"
-            f"{'R' if self.reserved_exponent else ''}")
+            f"{'R' if self.reserved_exponent else ''}"
+        )
