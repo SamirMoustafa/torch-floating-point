@@ -1,6 +1,6 @@
 # Block scale
 
-Shared per-block scale: \(y = (e - z)\,s\,s_{\mathrm{global}}\) with \(e = \mathrm{round}(x / (s\,s_{\mathrm{global}}) + z)\). The library takes a `BlockFormat` — two `FloatingPoint` codebooks, block geometry, \(M\), and a named scale-encode policy. It does not ship named hardware packings. Byte layouts, fused MMA, and vendor SDKs are out of scope; this is numeric reconstruct only.
+Shared per-block scale: \(y = (e - z)\,s\,s_{\mathrm{global}}\) with \(e = \mathrm{round}(x / (s\,s_{\mathrm{global}}) + z)\). The library takes a `BlockFormat` — two `FloatingPoint` codebooks, block geometry, \(M\), and a named scale-encode policy. It does not ship named hardware packings. Byte layouts, fused MMA, and vendor SDKs are out of scope; this is numeric reconstruct only. The [Explorer](explorer.md) plots that reconstruct for any recipe.
 
 [OCP MX](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) ([Rouhani et al., 2023](https://arxiv.org/abs/2310.10537)) uses UE8M0 scales over blocks of 32. **NVFP4** uses block 16, E4M3 (UE4M3) micro-scales, and an optional FP32 tensor scale ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)). See [Formats](formats.md) for constructors. The tables below are how to *match* those packings, not a catalog of exports.
 

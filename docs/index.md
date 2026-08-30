@@ -78,7 +78,7 @@ class FloatPointLinear(nn.Module):
         return nn.functional.linear(x, self.rounder(self.weight), self.bias)
 ```
 
-Next: [Formats](formats.md) · [block scaling](block.md) · [Autograd](autograd.md) · [Example](block-dasr.md) · [API](api.md)
+Next: [Formats](formats.md) · [Explorer](explorer.md) · [block scaling](block.md) · [Autograd](autograd.md) · [Example](block-dasr.md) · [API](api.md)
 
 ## Cite
 

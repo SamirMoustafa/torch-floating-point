@@ -58,6 +58,7 @@ theme:
 nav:
   - Home: index.md
   - Formats: formats.md
+  - Explorer: explorer.md
   - Block scale: block.md
   - Autograd: autograd.md
   - Example: block-dasr.md
@@ -80,6 +81,9 @@ extra_javascript:
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
   - javascripts/readthedocs.js
   - javascripts/ste-slider.js
+  - https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js
+  - javascripts/fp-codec.js
+  - javascripts/format-explorer.js
 
 markdown_extensions:
   - admonition

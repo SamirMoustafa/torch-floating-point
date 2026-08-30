@@ -1,6 +1,6 @@
 # Formats
 
-A `FloatingPoint` object is a **decode spec**: how many bits, where they sit, and how special values are encoded. `Round` then maps real tensors onto that codebook. These constructors are documentation and test fixtures — the package does not export named hardware formats.
+A `FloatingPoint` object is a **decode spec**: how many bits, where they sit, and how special values are encoded. `Round` then maps real tensors onto that codebook. These constructors are documentation and test fixtures — the package does not export named hardware formats. The [Explorer](explorer.md) plots the codebook and \(y=\mathrm{Round}(x)\) for any constructor.
 
 ```python
 from floating_point import FloatingPoint, Round
