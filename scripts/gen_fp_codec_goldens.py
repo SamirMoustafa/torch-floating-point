@@ -33,9 +33,9 @@ GOLDEN_PATH = ROOT / "test" / "testdata" / "fp_codec_goldens.json"
 # Explorer ELEM_PRESETS (format-explorer.js), snake_case constructors.
 ELEM_PRESETS: dict[str, dict[str, Any]] = {
     "e2m1": {"sign_bits": 1, "exponent_bits": 2, "mantissa_bits": 1, "bias": 1, "reserved_exponent": False},
-    "e1m2": {"sign_bits": 1, "exponent_bits": 1, "mantissa_bits": 2, "bias": 0, "reserved_exponent": False},
     "e3m2": {"sign_bits": 1, "exponent_bits": 3, "mantissa_bits": 2, "bias": 3, "reserved_exponent": False},
     "e2m3": {"sign_bits": 1, "exponent_bits": 2, "mantissa_bits": 3, "bias": 1, "reserved_exponent": False},
+    "e1m2": {"sign_bits": 1, "exponent_bits": 1, "mantissa_bits": 2, "bias": 0, "reserved_exponent": False},
     "e4m3fn": {
         "sign_bits": 1,
         "exponent_bits": 4,
@@ -49,7 +49,10 @@ ELEM_PRESETS: dict[str, dict[str, Any]] = {
     "ue8m0": {"sign_bits": 0, "exponent_bits": 8, "mantissa_bits": 0, "bias": 127, "reserved_exponent": True},
     "e4m3fnuz": {"sign_bits": 1, "exponent_bits": 4, "mantissa_bits": 3, "bias": 8, "reserved_exponent": False},
     "e5m2fnuz": {"sign_bits": 1, "exponent_bits": 5, "mantissa_bits": 2, "bias": 16, "reserved_exponent": False},
+    "cfloat8_e4m3": {"sign_bits": 1, "exponent_bits": 4, "mantissa_bits": 3, "bias": 7, "reserved_exponent": False},
+    "cfloat8_e5m2": {"sign_bits": 1, "exponent_bits": 5, "mantissa_bits": 2, "bias": 15, "reserved_exponent": False},
     "mxint8": {"sign_bits": 1, "exponent_bits": 0, "mantissa_bits": 7, "bias": 0, "reserved_exponent": True},
+    "uint4": {"sign_bits": 0, "exponent_bits": 0, "mantissa_bits": 4, "bias": -3, "reserved_exponent": True},
 }
 
 

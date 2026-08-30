@@ -44,6 +44,8 @@ E4M3 and E5M2 are the [OCP OFP8](https://www.opencompute.org/documents/ocp-8-bit
 | UE4M3 | same constructor as E4M3-FN | NVFP4 block scale: E4M3 bits, **sign ignored** ([cuBLAS block scaling](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types)). `scale_encode="nearest"` already takes \(\lvert\cdot\rvert\) |
 | E4M3 FNUZ | `FloatingPoint(1, 4, 3, 8, 8, reserved_exponent=False)` | Approximate [MI300 HIP FNUZ](https://rocmdocs.amd.com/en/develop/how-to/rocm-for-ai/inference-optimization/workload.html) (bias 8). Negative-zero NaN is not modeled |
 | E5M2 FNUZ | `FloatingPoint(1, 5, 2, 16, 8, reserved_exponent=False)` | Same caveat |
+| CFloat8 E4M3 | `FloatingPoint(1, 4, 3, 7, 8, reserved_exponent=False)` | Tesla Dojo: no Inf/NaN (all-ones is finite, max \(\pm 480\)). Bias is a 6-bit parameter \(0\ldots 63\); the constructor uses \(7\). [Dojo PDF](https://digitalassets.tesla.com/tesla-contents/image/upload/tesla-dojo-technology.pdf) |
+| CFloat8 E5M2 | `FloatingPoint(1, 5, 2, 15, 8, reserved_exponent=False)` | Same; default bias \(15\), max \(\pm 114688\) |
 
 ```python
 from floating_point import FloatingPoint
@@ -57,6 +59,9 @@ fp8_e4m3_240 = FloatingPoint(1, 4, 3, 7, 8, reserved_exponent=True)
 fp8_e5m2 = FloatingPoint(1, 5, 2, 15, 8, reserved_exponent=True)
 fp8_e8m0 = FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)
 fp8_e4m3_fnuz = FloatingPoint(1, 4, 3, 8, 8, reserved_exponent=False)
+fp8_e5m2_fnuz = FloatingPoint(1, 5, 2, 16, 8, reserved_exponent=False)
+cfloat8_e4m3 = FloatingPoint(1, 4, 3, 7, 8, reserved_exponent=False)
+cfloat8_e5m2 = FloatingPoint(1, 5, 2, 15, 8, reserved_exponent=False)
 ```
 
 !!! note "Element-wise vs block encode"
@@ -69,6 +74,8 @@ Sign+magnitude with no exponent field is the BFP / MXINT grid: value \(= \pm \ma
 ```python
 # MXINT8 / BFP8 mag: ±k/64 for k = 0..127; M = 127/64
 mxint8 = FloatingPoint(1, 0, 7, 0, 8)
+# GGUF Q4_0 / KleidiAI nibble: 0..15; pair with zero_point=8 so y = (e − 8) s
+uint4 = FloatingPoint(0, 0, 4, -3, 4)
 ```
 
 Signed integer grids used with `rounder=` (override `forward` to `round().clamp(lo, hi)`) rather than a minifloat decode:
