@@ -8,6 +8,7 @@
   --md-primary-fg-color--dark: var(--tfp-orange-dark);
   --md-accent-fg-color: #3b6fd8;
   --md-typeset-a-color: var(--tfp-orange);
+  --md-grid-max-width: 92rem;
 }
 
 [data-md-color-scheme="slate"] {
@@ -33,6 +34,10 @@
 .md-header,
 .md-tabs {
   background-color: var(--tfp-ink);
+}
+
+.md-grid {
+  max-width: var(--md-grid-max-width);
 }
 
 .md-search__form {
@@ -232,5 +237,399 @@
   .md-nav__source {
     background-color: #1a1a1a;
     color: var(--md-primary-bg-color);
+  }
+}
+
+.md-typeset .format-explorer {
+  --fe-chrome: calc(var(--md-header-height, 2.8rem) + 6.5rem);
+  --fe-figures-h: calc(100dvh - var(--fe-chrome));
+  --fe-block-plot-h: 14rem;
+  --fe-block-plot-gap: 0.35rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.md-typeset .format-explorer__layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 23rem) minmax(0, 1fr);
+  grid-template-areas: "config figures";
+  gap: 0.85rem 1.15rem;
+  align-items: start;
+  min-height: var(--fe-figures-h);
+}
+
+.md-typeset .format-explorer__config {
+  grid-area: config;
+  align-self: start;
+  min-width: 0;
+  padding-right: 0.15rem;
+}
+
+.md-typeset .format-explorer__config label {
+  margin: 0;
+}
+
+.md-typeset .format-explorer__figures {
+  grid-area: figures;
+  align-self: start;
+  min-width: 0;
+  width: 100%;
+  height: var(--fe-figures-h);
+  min-height: 28rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.md-typeset .format-explorer.is-block .format-explorer__figures {
+  height: calc(var(--fe-figures-h) + var(--fe-block-plot-h) + var(--fe-block-plot-gap));
+}
+
+.md-typeset .format-explorer__toolbar,
+.md-typeset .format-explorer__panel {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.45rem;
+  overflow: hidden;
+  background: var(--md-default-bg-color);
+}
+
+.md-typeset .format-explorer__toolbar {
+  margin-top: 0;
+}
+
+.md-typeset .format-explorer__panel-title {
+  margin: 0;
+  padding: 0.32rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  color: var(--md-default-fg-color);
+  background: color-mix(in srgb, var(--md-default-fg-color) 6%, var(--md-default-bg-color));
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .format-explorer .md-typeset__scrollwrap,
+.md-typeset .format-explorer .md-typeset__table {
+  display: block;
+  margin: 0;
+  overflow: visible;
+}
+
+.md-typeset .format-explorer table.format-explorer__table {
+  display: table;
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.78rem;
+}
+
+.md-typeset .format-explorer table.format-explorer__table th,
+.md-typeset .format-explorer table.format-explorer__table td {
+  border: 0;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  padding: 0;
+  vertical-align: middle;
+  line-height: 1.3;
+}
+
+.md-typeset .format-explorer table.format-explorer__table tbody:last-child tr:last-child th,
+.md-typeset .format-explorer table.format-explorer__table tbody:last-child tr:last-child td,
+.md-typeset .format-explorer table.format-explorer__table tbody:not([hidden]):has(+ tbody[hidden]) tr:last-child th,
+.md-typeset .format-explorer table.format-explorer__table tbody:not([hidden]):has(+ tbody[hidden]) tr:last-child td {
+  border-bottom: 0;
+}
+
+.md-typeset .format-explorer table.format-explorer__table tbody[hidden] {
+  display: none;
+}
+
+.md-typeset .format-explorer table.format-explorer__table th {
+  width: 42%;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.68rem;
+  color: var(--md-default-fg-color--light);
+  background: color-mix(in srgb, var(--md-default-fg-color) 4.5%, var(--md-default-bg-color));
+  border-right: 1px solid var(--md-default-fg-color--lightest);
+  padding: 0.22rem 0.5rem;
+}
+
+.md-typeset .format-explorer table.format-explorer__table th label {
+  font-weight: 600;
+  color: inherit;
+}
+
+.md-typeset .format-explorer table.format-explorer__table td {
+  background: var(--md-default-bg-color);
+  padding: 0.08rem 0.28rem;
+}
+
+.md-typeset .format-explorer table.format-explorer__table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--md-default-fg-color) 2.5%, var(--md-default-bg-color));
+}
+
+.md-typeset .format-explorer__mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.18rem;
+  padding: 0.28rem 0.35rem;
+}
+
+.md-typeset .format-explorer__mode label,
+.md-typeset .format-explorer__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+  font-size: 0.75rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.md-typeset .format-explorer table.format-explorer__table td:has(> input[type="checkbox"]),
+.md-typeset .format-explorer table.format-explorer__table td:has(> .format-explorer__check) {
+  padding-left: 0.4rem;
+}
+
+.md-typeset .format-explorer table.format-explorer__table input[type="number"],
+.md-typeset .format-explorer table.format-explorer__table select {
+  font: inherit;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.2rem 0.38rem;
+  line-height: 1.3;
+  border: 0;
+  border-radius: 0.22rem;
+  background: transparent;
+  color: var(--md-default-fg-color);
+  outline: none;
+}
+
+.md-typeset .format-explorer table.format-explorer__table select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--md-default-fg-color--light) 50%),
+    linear-gradient(135deg, var(--md-default-fg-color--light) 50%, transparent 50%);
+  background-position: calc(100% - 0.7rem) 50%, calc(100% - 0.45rem) 50%;
+  background-size: 0.28rem 0.28rem, 0.28rem 0.28rem;
+  background-repeat: no-repeat;
+  padding-right: 1.15rem;
+}
+
+.md-typeset .format-explorer table.format-explorer__table input[type="number"]:hover,
+.md-typeset .format-explorer table.format-explorer__table select:hover {
+  background-color: color-mix(in srgb, var(--md-default-fg-color) 3.5%, transparent);
+}
+
+.md-typeset .format-explorer table.format-explorer__table input[type="number"]:focus,
+.md-typeset .format-explorer table.format-explorer__table select:focus {
+  background-color: color-mix(in srgb, var(--tfp-orange) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tfp-orange) 55%, transparent);
+}
+
+.md-typeset .format-explorer__config input[type="checkbox"],
+.md-typeset .format-explorer__config input[type="radio"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--tfp-orange);
+}
+
+.md-typeset .format-explorer input[type="number"],
+.md-typeset .format-explorer select {
+  font: inherit;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.35rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+}
+
+.md-typeset .format-explorer input[readonly] {
+  opacity: 0.65;
+}
+
+.md-typeset .format-explorer input.is-invalid {
+  box-shadow: inset 0 0 0 1px var(--tfp-orange);
+}
+
+.md-typeset .format-explorer__block,
+.md-typeset .format-explorer__chips,
+.md-typeset .format-explorer__block-plot {
+  display: none;
+}
+
+.md-typeset .format-explorer.is-block .format-explorer__block {
+  display: block;
+}
+
+.md-typeset .format-explorer.is-block .format-explorer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin-top: 0.28rem;
+}
+
+.md-typeset .format-explorer.is-block .format-explorer__block-plot {
+  display: block;
+}
+
+.md-typeset .format-explorer__chip {
+  font: inherit;
+  font-size: 0.65rem;
+  line-height: 1.15;
+  color: var(--md-default-fg-color);
+  background: transparent;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 999px;
+  padding: 0.08rem 0.45rem;
+  cursor: pointer;
+}
+
+.md-typeset .format-explorer__chip:hover {
+  border-color: var(--tfp-orange);
+}
+
+.md-typeset .format-explorer__chip.is-active {
+  color: var(--tfp-orange);
+  border-color: var(--tfp-orange);
+}
+
+.md-typeset .format-explorer__stats,
+.md-typeset .format-explorer__readout,
+.md-typeset .format-explorer__hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .format-explorer__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  gap: 0.28rem;
+  margin-top: 0;
+  min-height: 3.4rem;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.md-typeset .format-explorer__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  padding: 0.08rem 0.45rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--md-default-fg-color);
+}
+
+.md-typeset .format-explorer__stat-key {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .format-explorer__readout {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--md-default-fg-color);
+}
+
+.md-typeset .format-explorer__probe {
+  display: grid;
+  grid-template-columns: auto 1fr 6.5rem;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.45rem;
+  flex: 0 0 auto;
+}
+
+.md-typeset .format-explorer__probe label {
+  font-weight: 600;
+  margin: 0;
+}
+
+.md-typeset .format-explorer__probe input[type="number"] {
+  width: 100%;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.85rem;
+}
+
+.md-typeset .format-explorer__plot-frame {
+  flex: 1 1 0%;
+  position: relative;
+  min-width: 0;
+  min-height: 14rem;
+  margin: 0.35rem 0 0;
+  overflow: hidden;
+}
+
+.md-typeset .format-explorer__block-plot {
+  flex: 0 0 var(--fe-block-plot-h);
+  height: var(--fe-block-plot-h);
+  min-height: var(--fe-block-plot-h);
+}
+
+.md-typeset .format-explorer__plot {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+}
+
+.md-typeset .format-explorer__snippet {
+  margin: 0.4rem 0 0;
+  overflow-x: auto;
+  font-size: 0.72rem;
+}
+
+.md-typeset .format-explorer__error {
+  color: var(--tfp-orange);
+  font-weight: 600;
+}
+
+@media screen and (max-width: 64em) {
+  .md-typeset .format-explorer__layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "config"
+      "figures";
+    min-height: 0;
+  }
+
+  .md-typeset .format-explorer__figures,
+  .md-typeset .format-explorer.is-block .format-explorer__figures {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .md-typeset .format-explorer__plot-frame {
+    flex: none;
+    height: 28rem;
+    min-height: 28rem;
+  }
+
+  .md-typeset .format-explorer__block-plot {
+    flex: none;
+    height: 15rem;
+    min-height: 15rem;
+  }
+}
+
+@media screen and (max-width: 44.99em) {
+  .md-typeset .format-explorer__probe {
+    grid-template-columns: 1fr;
   }
 }
