@@ -5,9 +5,9 @@ hide:
 
 # Explorer
 
-Pick a documented layout or edit the `FloatingPoint` knobs. The plots are the same language as [Autograd](autograd.md): identity \(x\) dashed, \(y\) in orange, rounding error underneath. The codebook rug is every finite code in the current \(x\) window. Gradients stay on the Autograd page; this is the **forward** map.
+Pick a documented layout from the chips, or expand the codebook to edit the `FloatingPoint` knobs. The plots are the same language as [Autograd](autograd.md): identity \(x\) dashed, \(y\) in orange, rounding error underneath. The codebook rug is every finite code in the current \(x\) window. Gradients stay on the Autograd page; this is the **forward** map.
 
-In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then \(y=(e-z)\,s\,s_g\). Geometry (`block_size`) does not change that 1-D transfer; the demo-block plot shows a linspace of length \(\min(k,64)\).
+In block mode, chips pick a recipe. Expand the codebook to customize encode, \(M\), and geometry. Scrub \(s\), \(s_g\), and \(z\) under the plot (\(y=(e-z)\,s\,s_g\); dragging \(s\) is a `scales=` override until absmax / \(M\) / the scale codebook change). Geometry (`block_size`) does not change that 1-D transfer; the demo-block plot shows a linspace of length \(\min(k,64)\).
 
 <div class="format-explorer" id="format-explorer">
   <noscript>
@@ -37,12 +37,15 @@ In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then 
           </tbody>
         </table>
       </div>
+      <div class="format-explorer__chips" id="fe-elem-chips" aria-label="Element presets"></div>
       <div class="format-explorer__chips" id="fe-recipes" aria-label="Block recipes"></div>
-      <section class="format-explorer__panel format-explorer__elem">
+      <details class="format-explorer__details">
+        <summary class="format-explorer__details-summary"><span data-fe-summary>Codebook</span></summary>
+        <section class="format-explorer__panel format-explorer__elem">
         <div class="format-explorer__panel-title">Element codebook</div>
         <table class="format-explorer__table">
           <tbody>
-            <tr>
+            <tr id="fe-elem-preset-row">
               <th><label for="fe-elem-preset">Preset</label></th>
               <td><select id="fe-elem-preset"></select></td>
             </tr>
@@ -122,14 +125,6 @@ In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then 
               <td><input id="fe-M" type="number" min="0" step="any" value="6" autocomplete="off"></td>
             </tr>
             <tr>
-              <th><label for="fe-sg">s_global</label></th>
-              <td><input id="fe-sg" type="number" step="any" value="1" autocomplete="off"></td>
-            </tr>
-            <tr>
-              <th><label for="fe-z">zero_point</label></th>
-              <td><input id="fe-z" type="number" step="any" value="0" autocomplete="off"></td>
-            </tr>
-            <tr>
               <th><label for="fe-amax">block absmax</label></th>
               <td><input id="fe-amax" type="number" step="any" value="6" autocomplete="off"></td>
             </tr>
@@ -154,15 +149,36 @@ In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then 
           </tbody>
         </table>
       </section>
+        <input id="fe-sg" type="number" hidden aria-hidden="true" value="1" autocomplete="off">
+        <input id="fe-z" type="number" hidden aria-hidden="true" value="0" autocomplete="off">
+      </details>
     </div>
     <div class="format-explorer__figures">
       <p class="format-explorer__stats" data-fe-stats></p>
       <div class="format-explorer__probe">
-        <label for="fe-probe">probe x</label>
-        <input id="fe-probe" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.6" aria-valuemin="0" aria-valuemax="1">
-        <input id="fe-probe-num" type="number" step="any" value="1.5" autocomplete="off" aria-label="probe x value">
+        <div class="format-explorer__knob">
+          <label for="fe-probe">probe x</label>
+          <input id="fe-probe" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.6" aria-valuemin="0" aria-valuemax="1">
+          <input id="fe-probe-num" type="number" step="any" value="1.5" autocomplete="off" aria-label="probe x value">
+        </div>
+        <div class="format-explorer__block-knobs">
+          <div class="format-explorer__knob">
+            <label for="fe-s-range">s</label>
+            <input id="fe-s-range" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.5" aria-valuemin="0" aria-valuemax="1">
+            <input id="fe-s-num" type="number" step="any" value="1" autocomplete="off" aria-label="s value">
+          </div>
+          <div class="format-explorer__knob">
+            <label for="fe-sg-range">s_g</label>
+            <input id="fe-sg-range" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.5" aria-valuemin="0" aria-valuemax="1">
+            <input id="fe-sg-num" type="number" step="any" value="1" autocomplete="off" aria-label="s_g value">
+          </div>
+          <div class="format-explorer__knob">
+            <label for="fe-z-range">z</label>
+            <input id="fe-z-range" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.5" aria-valuemin="0" aria-valuemax="1">
+            <input id="fe-z-num" type="number" step="any" value="0" autocomplete="off" aria-label="z value">
+          </div>
+        </div>
       </div>
-      <p class="format-explorer__readout" data-fe-readout aria-live="polite"></p>
       <div class="format-explorer__plot-frame">
         <div class="format-explorer__plot" id="fe-plot" role="img" aria-label="Transfer function, codebook, and rounding error"></div>
       </div>
@@ -178,9 +194,12 @@ In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then 
 ## Caveats
 
 - **FNUZ** presets match bias and finite max; negative-zero-as-NaN is not modeled ([Formats](formats.md)).
+- **CFloat8** omits Inf/NaN; the chips use Tesla’s usual biases \(7\) / \(15\). Change `bias` in the codebook for the 6-bit parameter.
+- **GGUF Q4_0** / **KleidiAI INT4** use an unsigned \(0\ldots 15\) codebook plus `zero_point=8` (nibble \(-8\)), IEEE FP16 scales, \(k=32\). They are not two’s-complement `Round`.
+- **Tensix BFP8** is MXINT8 mag with a shared exponent over \(k=16\) (not OCP \(k=32\)).
 - **UE4M3** is the E4M3-FN constructor; block `nearest` already takes \(\lvert\cdot\rvert\).
 - **HiF8** is tapered — a single `FloatingPoint` cannot represent it. It is not in the preset list.
-- Rounding follows the CPU kernel (ties to even) except \(E=0\) (MXINT / BFP mag), which snaps to the nearest finite codebook value.
+- Rounding follows the CPU kernel (ties to even) except \(E=0\) (MXINT / BFP mag / UINT4), which snaps to the nearest finite codebook value.
 - Autograd estimators (STE, EWGS, ReSTE, …) are on [Autograd](autograd.md).
 
 ## Maintaining the explorer
@@ -199,5 +218,5 @@ The page runs a hand-ported kernel in `javascripts/fp-codec.js`. Python/C++ stay
 
 **New `scale_encode`:** add the string to `_SCALE_ENCODES` and a branch in `encode_scale`; copy both into JS `SCALE_ENCODES` and `encode_scale`; add a golden row; `--write`; `check_fp_codec.py`.
 
-**New format preset:** add the id to `ELEM_PRESETS` in the explorer (Python kwargs names) and in the generator; optional `BLOCK_RECIPES`; `--write`; check.
+**New format preset:** add the id to `ELEM_PRESETS` in the explorer (Python kwargs names) and in the generator (`chip: false` skips the element chip bar; omit 16-bit types from the generator — 2¹⁶ codes). Optional `BLOCK_RECIPES`; `--write`; check.
 

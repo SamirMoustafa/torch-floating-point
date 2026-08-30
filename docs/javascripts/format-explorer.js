@@ -42,9 +42,9 @@ const FE_DARK = {
 
 const ELEM_PRESETS = {
   e2m1: { label: "E2M1", sign_bits: 1, exponent_bits: 2, mantissa_bits: 1, bias: 1, reserved_exponent: false },
-  e1m2: { label: "E1M2", sign_bits: 1, exponent_bits: 1, mantissa_bits: 2, bias: 0, reserved_exponent: false },
   e3m2: { label: "E3M2", sign_bits: 1, exponent_bits: 3, mantissa_bits: 2, bias: 3, reserved_exponent: false },
   e2m3: { label: "E2M3", sign_bits: 1, exponent_bits: 2, mantissa_bits: 3, bias: 1, reserved_exponent: false },
+  e1m2: { label: "E1M2", sign_bits: 1, exponent_bits: 1, mantissa_bits: 2, bias: 0, reserved_exponent: false },
   e4m3fn: {
     label: "E4M3-FN",
     sign_bits: 1,
@@ -80,17 +80,53 @@ const ELEM_PRESETS = {
     bias: 16,
     reserved_exponent: false,
   },
+  cfloat8_e4m3: {
+    label: "CFloat8 E4M3",
+    sign_bits: 1,
+    exponent_bits: 4,
+    mantissa_bits: 3,
+    bias: 7,
+    reserved_exponent: false,
+  },
+  cfloat8_e5m2: {
+    label: "CFloat8 E5M2",
+    sign_bits: 1,
+    exponent_bits: 5,
+    mantissa_bits: 2,
+    bias: 15,
+    reserved_exponent: false,
+  },
   mxint8: { label: "MXINT8", sign_bits: 1, exponent_bits: 0, mantissa_bits: 7, bias: 0, reserved_exponent: true },
+  uint4: {
+    label: "UINT4",
+    sign_bits: 0,
+    exponent_bits: 0,
+    mantissa_bits: 4,
+    bias: -3,
+    reserved_exponent: true,
+    chip: false,
+  },
+  fp16: {
+    label: "FP16",
+    sign_bits: 1,
+    exponent_bits: 5,
+    mantissa_bits: 10,
+    bias: 15,
+    reserved_exponent: true,
+    chip: false,
+  },
 };
 
+const SCALE_PRESET_LEAD = ["ue8m0", "e4m3fn", "fp16"];
+
 const BLOCK_RECIPES = {
-  nvfp4: {
-    label: "NVFP4",
-    elem: "e2m1",
-    scale: "e4m3fn",
-    block_size: 16,
-    M: 6,
-    scale_encode: "nearest",
+  mxfp8_e5m2: {
+    label: "MXFP8 E5M2",
+    elem: "e5m2",
+    scale: "ue8m0",
+    block_size: 32,
+    M: 57344,
+    scale_encode: "ue8m0_ceil",
     s_global: 1,
     zero_point: 0,
   },
@@ -124,6 +160,26 @@ const BLOCK_RECIPES = {
     s_global: 1,
     zero_point: 0,
   },
+  mxfp6_e3m2: {
+    label: "MXFP6 E3M2",
+    elem: "e3m2",
+    scale: "ue8m0",
+    block_size: 32,
+    M: 28,
+    scale_encode: "ue8m0_ceil",
+    s_global: 1,
+    zero_point: 0,
+  },
+  mxfp6_e2m3: {
+    label: "MXFP6 E2M3",
+    elem: "e2m3",
+    scale: "ue8m0",
+    block_size: 32,
+    M: 7.5,
+    scale_encode: "ue8m0_ceil",
+    s_global: 1,
+    zero_point: 0,
+  },
   mxfp4: {
     label: "MXFP4",
     elem: "e2m1",
@@ -134,11 +190,63 @@ const BLOCK_RECIPES = {
     s_global: 1,
     zero_point: 0,
   },
+  mxfp4_e1m2: {
+    label: "MXFP4 E1M2",
+    elem: "e1m2",
+    scale: "ue8m0",
+    block_size: 32,
+    M: 3.5,
+    scale_encode: "ue8m0_ceil",
+    s_global: 1,
+    zero_point: 0,
+  },
   mxint8: {
     label: "MXINT8",
     elem: "mxint8",
     scale: "ue8m0",
     block_size: 32,
+    M: 127 / 64,
+    scale_encode: "ocp_floor",
+    s_global: 1,
+    zero_point: 0,
+  },
+  gguf_q4_0: {
+    label: "GGUF Q4_0",
+    elem: "uint4",
+    scale: "fp16",
+    block_size: 32,
+    M: 8,
+    scale_encode: "nearest",
+    s_global: 1,
+    zero_point: 8,
+    logX: false,
+  },
+  kleidiai_int4: {
+    label: "KleidiAI INT4",
+    elem: "uint4",
+    scale: "fp16",
+    block_size: 32,
+    M: 8,
+    scale_encode: "signed_peak",
+    s_global: 1,
+    zero_point: 8,
+    logX: false,
+  },
+  nvfp4: {
+    label: "NVFP4",
+    elem: "e2m1",
+    scale: "e4m3fn",
+    block_size: 16,
+    M: 6,
+    scale_encode: "nearest",
+    s_global: 1,
+    zero_point: 0,
+  },
+  tensix_bfp8: {
+    label: "Tensix BFP8",
+    elem: "mxint8",
+    scale: "ue8m0",
+    block_size: 16,
     M: 127 / 64,
     scale_encode: "ocp_floor",
     s_global: 1,
@@ -158,6 +266,9 @@ const BLOCK_RECIPES = {
 
 const X_WINDOWS = [
   { id: "full", label: "Full range" },
+  { id: "1", label: "±1" },
+  { id: "2", label: "±2" },
+  { id: "4", label: "±4" },
   { id: "8", label: "±8" },
   { id: "16", label: "±16" },
   { id: "32", label: "±32" },
@@ -311,17 +422,16 @@ function uniqueSorted(xs) {
   return out;
 }
 
-function sampleXs(lo, hi, fp, useLog) {
+function sampleXs(lo, hi, knots, useLog) {
   const raw = useLog ? logspace(Math.max(lo, Number.MIN_VALUE), hi, 1600) : linspace(lo, hi, 2200);
   const extra = [];
-  const finite = fp.finite_values();
-  for (let i = 0; i < finite.length; i++) {
-    const c = finite[i];
+  for (let i = 0; i < knots.length; i++) {
+    const c = knots[i];
     if (c >= lo && c <= hi && (!useLog || c > 0)) {
       extra.push(c);
     }
-    if (i + 1 < finite.length) {
-      const mid = 0.5 * (finite[i] + finite[i + 1]);
+    if (i + 1 < knots.length) {
+      const mid = 0.5 * (knots[i] + knots[i + 1]);
       if (mid >= lo && mid <= hi && (!useLog || mid > 0)) {
         extra.push(mid);
       }
@@ -343,12 +453,27 @@ function downsample(arr, maxN) {
   return out;
 }
 
-function fillSelect(select, entries, withCustom) {
+function fillSelect(select, entries, withCustom, leadIds) {
   select.replaceChildren();
-  for (const [id, preset] of Object.entries(entries)) {
+  const seen = new Set();
+  const ids = [];
+  if (leadIds) {
+    for (const id of leadIds) {
+      if (entries[id] && !seen.has(id)) {
+        ids.push(id);
+        seen.add(id);
+      }
+    }
+  }
+  for (const id of Object.keys(entries)) {
+    if (!seen.has(id)) {
+      ids.push(id);
+    }
+  }
+  for (const id of ids) {
     const opt = document.createElement("option");
     opt.value = id;
-    opt.textContent = preset.label;
+    opt.textContent = entries[id].label;
     select.appendChild(opt);
   }
   if (withCustom) {
@@ -363,7 +488,7 @@ function constructorLine(name, fp) {
   return fp.to_constructor(name);
 }
 
-function pythonSnippet(state, elem_fp, scale_fp) {
+function pythonSnippet(state, elem_fp, scale_fp, s) {
   const lines = [];
   if (state.block) {
     lines.push("from floating_point import BlockFormat, BlockRound, FloatingPoint");
@@ -383,7 +508,13 @@ function pythonSnippet(state, elem_fp, scale_fp) {
     }
     const extraStr = extra.length ? `, ${extra.join(", ")}` : "";
     lines.push(`spec = BlockFormat(elem_fp, scale_fp, ${size}, ${fmtM(state.M)}, ${JSON.stringify(state.scale_encode)}${extraStr})`);
-    lines.push("y = BlockRound(spec)(x)");
+    const scaleVal = state.sOverride != null ? state.sOverride : s;
+    if (state.zero_point !== 0 || state.sOverride != null) {
+      lines.unshift("import torch");
+      lines.push(`y = BlockRound(spec)(x, scales=torch.tensor([${fmt(scaleVal, 8)}]))`);
+    } else {
+      lines.push("y = BlockRound(spec)(x)");
+    }
   } else {
     lines.push("from floating_point import FloatingPoint, Round");
     lines.push("");
@@ -402,9 +533,11 @@ function positiveMin(fp) {
   return Math.max(fp.epsilon, 1e-45);
 }
 
-function xWindow(fp, windowId, useLog) {
-  const min = fp.minimum;
-  const max = fp.maximum;
+function xWindow(fp, windowId, useLog, mapCode) {
+  const map = typeof mapCode === "function" ? mapCode : (v) => v;
+  const min = map(fp.minimum);
+  const max = map(fp.maximum);
+  const signed = fp.is_signed || min < 0;
   const pad = 0.2 * Math.max(Math.abs(min), Math.abs(max), 1e-6);
   if (useLog) {
     const lo = positiveMin(fp);
@@ -416,10 +549,12 @@ function xWindow(fp, windowId, useLog) {
   }
   if (windowId !== "full") {
     const half = Number(windowId);
-    const lo = fp.is_signed ? -half : Math.min(0, min);
+    const lo = signed ? -half : Math.min(0, min);
     return [lo, half];
   }
-  return [min - pad, max + pad];
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  return [lo - pad, hi + pad];
 }
 
 function domainToValue(t, lo, hi, useLog) {
@@ -438,6 +573,46 @@ function valueToDomain(value, lo, hi, useLog) {
     return window.TFP.clamp((Math.log(value) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)), 0, 1);
   }
   return window.TFP.clamp((value - lo) / (hi - lo), 0, 1);
+}
+
+function scaleSliderDomain(fp) {
+  const lo = positiveMin(fp);
+  const hi = Math.max(fp.maximum, lo * 2);
+  return [lo, hi];
+}
+
+function sgSliderDomain(sg) {
+  if (!Number.isFinite(sg) || sg === 0) {
+    return [0.125, 8];
+  }
+  if (sg < 0) {
+    const mag = Math.max(Math.abs(sg), 0.125);
+    return [-mag * 4, -mag / 4];
+  }
+  return [Math.min(0.125, sg / 4), Math.max(8, sg * 4)];
+}
+
+function zSliderDomain(fp) {
+  const lo = fp.minimum;
+  const hi = fp.maximum;
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi) {
+    const pad = Math.max(Math.abs(lo) || 1, Math.abs(hi) || 1);
+    return [lo - pad, hi + pad];
+  }
+  const pad = 0.05 * (hi - lo);
+  return [lo - pad, hi + pad];
+}
+
+function setSlider(rangeEl, numEl, value, lo, hi, useLog) {
+  if (!rangeEl || !Number.isFinite(value)) {
+    return;
+  }
+  if (document.activeElement !== rangeEl) {
+    rangeEl.value = String(valueToDomain(value, lo, hi, useLog));
+  }
+  if (numEl && document.activeElement !== numEl) {
+    numEl.value = String(Number(value.toPrecision(8)));
+  }
 }
 
 function autoLog(fp) {
@@ -540,12 +715,28 @@ function writeKnobs(root, prefix, knobs) {
   bitsEl.classList.toggle("is-invalid", bits < 1 || bits > window.TFP.MAX_BITS);
 }
 
+const fpMemo = new Map();
+
 function makeFp(knobs) {
   const bits = knobs.sign_bits + knobs.exponent_bits + knobs.mantissa_bits;
-  return new window.TFP.FloatingPoint(knobs.sign_bits, knobs.exponent_bits, knobs.mantissa_bits, knobs.bias, bits, {
-    reserved_exponent: knobs.reserved_exponent,
-    max_mantissa_at_max_exponent: knobs.max_mantissa_at_max_exponent,
-  });
+  const key = [
+    knobs.sign_bits,
+    knobs.exponent_bits,
+    knobs.mantissa_bits,
+    knobs.bias,
+    bits,
+    knobs.reserved_exponent,
+    knobs.max_mantissa_at_max_exponent,
+  ].join("|");
+  let fp = fpMemo.get(key);
+  if (!fp) {
+    fp = new window.TFP.FloatingPoint(knobs.sign_bits, knobs.exponent_bits, knobs.mantissa_bits, knobs.bias, bits, {
+      reserved_exponent: knobs.reserved_exponent,
+      max_mantissa_at_max_exponent: knobs.max_mantissa_at_max_exponent,
+    });
+    fpMemo.set(key, fp);
+  }
+  return fp;
 }
 
 function blockSizeK(state) {
@@ -589,17 +780,25 @@ function mountExplorer(root) {
   const encodeSelect = root.querySelector("#fe-encode");
   const xRange = root.querySelector("#fe-xrange");
   const recipes = root.querySelector("#fe-recipes");
+  const elemChips = root.querySelector("#fe-elem-chips");
   const plotEl = root.querySelector("#fe-plot");
   const blockPlotEl = root.querySelector("#fe-block-plot");
   const snippet = root.querySelector("[data-fe-snippet]");
   const stats = root.querySelector("[data-fe-stats]");
-  const readout = root.querySelector("[data-fe-readout]");
   const probeRange = root.querySelector("#fe-probe");
   const probeNum = root.querySelector("#fe-probe-num");
+  const sRange = root.querySelector("#fe-s-range");
+  const sNum = root.querySelector("#fe-s-num");
+  const sgRange = root.querySelector("#fe-sg-range");
+  const sgNum = root.querySelector("#fe-sg-num");
+  const zRange = root.querySelector("#fe-z-range");
+  const zNum = root.querySelector("#fe-z-num");
   const errorBox = root.querySelector("[data-fe-error]");
+  const codebookDetails = root.querySelector(".format-explorer__details");
+  const codebookSummary = root.querySelector("[data-fe-summary]");
 
   fillSelect(elemPreset, ELEM_PRESETS, true);
-  fillSelect(scalePreset, ELEM_PRESETS, true);
+  fillSelect(scalePreset, ELEM_PRESETS, true, SCALE_PRESET_LEAD);
   encodeSelect.replaceChildren();
   for (const name of window.TFP.SCALE_ENCODES) {
     const opt = document.createElement("option");
@@ -623,11 +822,33 @@ function mountExplorer(root) {
     btn.textContent = recipe.label;
     recipes.appendChild(btn);
   }
+  if (elemChips) {
+    elemChips.replaceChildren();
+    for (const [id, preset] of Object.entries(ELEM_PRESETS)) {
+      if (preset.chip === false) {
+        continue;
+      }
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "format-explorer__chip";
+      btn.dataset.elemPreset = id;
+      btn.textContent = preset.label;
+      elemChips.appendChild(btn);
+    }
+  }
 
   let syncing = false;
   let probe = 1.5;
+  let sOverride = null;
   let lastLogAxis = false;
   let lastDomain = [0, 1];
+  let lastSDomain = [1e-3, 1];
+  let lastSLog = true;
+  let lastSgDomain = [0.125, 8];
+  let lastSgLog = true;
+  let lastZDomain = [-1, 1];
+  let lastEncodeKey = "";
+  let dragging = null;
   const abort = new AbortController();
   const on = { signal: abort.signal };
 
@@ -650,6 +871,7 @@ function mountExplorer(root) {
       blockW: Math.max(1, Math.trunc(Number(root.querySelector("#fe-block-w").value) || 16)),
       xWindow: xRange.value,
       logX: root.querySelector("#fe-logx").checked,
+      sOverride,
     };
   }
 
@@ -674,6 +896,8 @@ function mountExplorer(root) {
       return;
     }
     syncing = true;
+    sOverride = null;
+    lastEncodeKey = "";
     root.querySelector("#fe-mode-block").checked = true;
     elemPreset.value = recipe.elem;
     scalePreset.value = recipe.scale;
@@ -686,10 +910,16 @@ function mountExplorer(root) {
     root.querySelector("#fe-amax").value = String(recipe.M);
     root.querySelector("#fe-tile").checked = false;
     root.querySelector("#fe-block-size").value = String(recipe.block_size);
+    if (recipe.logX === false) {
+      root.querySelector("#fe-logx").checked = false;
+    }
     syncing = false;
     syncPresetSelects();
     updateModeClass();
-    draw(true);
+    if (codebookDetails) {
+      codebookDetails.open = false;
+    }
+    draw();
   }
 
   function syncPresetSelects() {
@@ -702,6 +932,11 @@ function mountExplorer(root) {
       scalePreset.value = scaleId;
     }
     const state = readState();
+    if (elemChips) {
+      for (const btn of elemChips.querySelectorAll("[data-elem-preset]")) {
+        btn.classList.toggle("is-active", !state.block && btn.dataset.elemPreset === elemId);
+      }
+    }
     for (const btn of recipes.querySelectorAll("[data-recipe]")) {
       const r = BLOCK_RECIPES[btn.dataset.recipe];
       const on =
@@ -711,6 +946,7 @@ function mountExplorer(root) {
         scaleId === r.scale &&
         state.scale_encode === r.scale_encode &&
         Math.abs(state.M - r.M) < 1e-12 &&
+        Math.abs(state.zero_point - r.zero_point) < 1e-12 &&
         !state.tile &&
         state.block_size === r.block_size;
       btn.classList.toggle("is-active", on);
@@ -721,6 +957,42 @@ function mountExplorer(root) {
     root.classList.toggle("is-block", isBlock());
     root.querySelector("#fe-tile-fields").hidden = !root.querySelector("#fe-tile").checked;
     root.querySelector("#fe-block-size-wrap").hidden = root.querySelector("#fe-tile").checked;
+  }
+
+  function presetLabel(id) {
+    return id !== "custom" && ELEM_PRESETS[id] ? ELEM_PRESETS[id].label : "Custom";
+  }
+
+  function updateSummary(state) {
+    if (!codebookSummary) {
+      return;
+    }
+    const elemId = matchPresetId(readKnobs(root, "#fe-elem"));
+    if (!state.block) {
+      codebookSummary.textContent = presetLabel(elemId);
+      return;
+    }
+    const scaleId = matchPresetId(readKnobs(root, "#fe-scale"));
+    const geom = state.tile ? `${state.blockH}×${state.blockW}` : `k=${state.block_size}`;
+    const parts = [
+      `${presetLabel(elemId)} × ${presetLabel(scaleId)}`,
+      state.scale_encode,
+      `M=${fmtM(state.M)}`,
+      geom,
+    ];
+    if (state.zero_point !== 0) {
+      parts.push(`z=${fmt(state.zero_point, 8)}`);
+    }
+    codebookSummary.textContent = parts.join(" · ");
+  }
+
+  function openDetailsIfCustom() {
+    if (!codebookDetails) {
+      return;
+    }
+    if (elemPreset.value === "custom" || (isBlock() && scalePreset.value === "custom")) {
+      codebookDetails.open = true;
+    }
   }
 
   function setProbe(value, fromSlider) {
@@ -739,10 +1011,11 @@ function mountExplorer(root) {
     return window.TFP.clamp(value, lo, hi);
   }
 
-  function draw(resetRange, fromSlider) {
+  function draw(fromSlider) {
     errorBox.hidden = true;
     updateModeClass();
     const state = readState();
+    updateSummary(state);
     let elem_fp;
     let scale_fp;
     try {
@@ -758,25 +1031,6 @@ function mountExplorer(root) {
     root.querySelector("#fe-scale-bits").value = String(scale_fp.bits);
 
     const logAxis = Boolean(state.logX);
-    const [lo, hi] = xWindow(elem_fp, state.xWindow, logAxis);
-    lastDomain = [lo, hi];
-    lastLogAxis = logAxis;
-    if (logAxis && probe <= 0) {
-      probe = lo;
-    }
-    if (!fromSlider && (resetRange || probe < lo || probe > hi)) {
-      const mid = logAxis ? Math.exp(0.5 * (Math.log(Math.max(lo, 1e-45)) + Math.log(hi))) : 0.25 * (lo + hi);
-      const finite = elem_fp.finite_values().filter((v) => v >= lo && v <= hi && (!logAxis || v > 0));
-      probe = finite.length ? finite[Math.min(finite.length - 1, Math.floor(finite.length * 0.7))] : mid;
-    }
-    if (!fromSlider) {
-      setProbe(probe, false);
-    } else {
-      probeNum.value = String(Number(probe.toPrecision(8)));
-    }
-
-    const pal = palette();
-    const xs = sampleXs(lo, hi, elem_fp, logAxis).filter((x) => !logAxis || x > 0);
     let s = 1;
     const sg = Number.isFinite(state.s_global) && state.s_global !== 0 ? state.s_global : 1;
     const z = Number.isFinite(state.zero_point) ? state.zero_point : 0;
@@ -784,6 +1038,17 @@ function mountExplorer(root) {
     if (state.block) {
       const amax = Number.isFinite(state.amax) ? state.amax : M;
       const stat = state.scale_encode === "signed_peak" ? amax / sg : Math.abs(amax) / sg;
+      const encodeKey = [
+        amax,
+        M,
+        state.scale_encode,
+        scale_fp.to_constructor("s"),
+        state.block,
+      ].join("|");
+      if (encodeKey !== lastEncodeKey) {
+        lastEncodeKey = encodeKey;
+        sOverride = null;
+      }
       try {
         s = window.TFP.encode_scale(stat, {
           elem_fp,
@@ -796,7 +1061,47 @@ function mountExplorer(root) {
         errorBox.textContent = err.message;
         return;
       }
+      if (sOverride != null && Number.isFinite(sOverride) && sOverride !== 0) {
+        s = sOverride;
+      }
+      state.sOverride = sOverride;
+      lastSLog = autoLog(scale_fp) || scale_fp.maximum / Math.max(positiveMin(scale_fp), 1e-45) > 64;
+      lastSDomain = scaleSliderDomain(scale_fp);
+      lastZDomain = zSliderDomain(elem_fp);
+      if (dragging !== sgRange) {
+        lastSgLog = sg > 0;
+        lastSgDomain = sgSliderDomain(sg);
+      }
+      setSlider(sRange, sNum, s, lastSDomain[0], lastSDomain[1], lastSLog);
+      setSlider(sgRange, sgNum, sg, lastSgDomain[0], lastSgDomain[1], lastSgLog);
+      setSlider(zRange, zNum, z, lastZDomain[0], lastZDomain[1], false);
+      if (document.activeElement !== root.querySelector("#fe-sg")) {
+        root.querySelector("#fe-sg").value = String(sg);
+      }
+      if (document.activeElement !== root.querySelector("#fe-z")) {
+        root.querySelector("#fe-z").value = String(z);
+      }
     }
+
+    const mapCode =
+      state.block && z !== 0 ? (v) => (v - z) * s * sg : (v) => v;
+    const [lo, hi] = xWindow(elem_fp, state.xWindow, logAxis, mapCode);
+    lastDomain = [lo, hi];
+    lastLogAxis = logAxis;
+    if (!fromSlider) {
+      if (logAxis && !(probe > 0)) {
+        probe = lo;
+      } else if (!Number.isFinite(probe) || probe < lo || probe > hi) {
+        probe = clampProbe(Number.isFinite(probe) ? probe : 1.5, lo, hi);
+      }
+      setProbe(probe, false);
+    } else {
+      probeNum.value = String(Number(probe.toPrecision(8)));
+    }
+
+    const pal = palette();
+    const knots = elem_fp.finite_values().map(mapCode);
+    const xs = sampleXs(lo, hi, knots, logAxis).filter((x) => !logAxis || x > 0);
 
     const yOf = (x) => {
       if (state.block) {
@@ -807,10 +1112,8 @@ function mountExplorer(root) {
     const ys = mapValues(xs, yOf);
     const err = xs.map((x, i) => x - ys[i]);
     const yProbe = yOf(probe);
-    const recon = state.block ? window.TFP.reconstruct(probe, elem_fp, s, sg, z) : null;
 
     const elemStats = elem_fp.codebook_stats();
-    const scaleStats = scale_fp.codebook_stats();
     const sat =
       state.block
         ? probe / (s * sg) + z < elem_fp.minimum || probe / (s * sg) + z > elem_fp.maximum
@@ -828,34 +1131,34 @@ function mountExplorer(root) {
     }
     if (state.block) {
       appendStat(stats, "s", fmtDisp(s));
-      appendStat(stats, "scale", `${fmtDisp(scaleStats.minimum)} … ${fmtDisp(scaleStats.maximum)}`);
+      appendStat(stats, "scale", `${fmtDisp(scale_fp.minimum)} … ${fmtDisp(scale_fp.maximum)}`);
+      if (z !== 0) {
+        appendStat(stats, "z", fmtDisp(z));
+      }
+    }
+    if (sat) {
+      appendStat(stats, "sat", "yes");
     }
 
-    if (state.block && recon) {
-      readout.textContent = `x ${fmtDisp(probe)} → y ${fmtDisp(yProbe)} · |x−y| ${fmtDisp(Math.abs(probe - yProbe))} · e ${fmtDisp(recon.e)} · s ${fmtDisp(s)} · s_g ${fmtDisp(sg)} · z ${fmtDisp(z)}${sat ? " · saturated" : ""}`;
-    } else {
-      readout.textContent = `x ${fmtDisp(probe)} → y ${fmtDisp(yProbe)} · |x−y| ${fmtDisp(Math.abs(probe - yProbe))}${sat ? " · saturated" : ""}`;
-    }
-
-    snippet.textContent = pythonSnippet(state, elem_fp, scale_fp);
+    snippet.textContent = pythonSnippet(state, elem_fp, scale_fp, s);
 
     const yName = state.block ? "y = (e − z) s s_g" : "y = Round(x)";
     const elemCodes = downsample(
-      elem_fp.finite_values().filter((v) => v >= lo && v <= hi && (!logAxis || v > 0)),
+      knots.filter((v) => v >= lo && v <= hi && (!logAxis || v > 0)),
       2048,
     );
-    const scaleCodes = state.block
-      ? downsample(
-          scale_fp.finite_values().filter((v) => v >= lo && v <= hi && (!logAxis || v > 0)),
-          2048,
-        )
-      : [];
+    const scaleCodes =
+      state.block && scale_fp.bits < 16
+        ? downsample(
+            scale_fp.finite_values().filter((v) => v >= lo && v <= hi && (!logAxis || v > 0)),
+            2048,
+          )
+        : [];
 
     const yBound = Math.max(
       Math.abs(lo),
       Math.abs(hi),
       ...ys.filter(Number.isFinite).map(Math.abs),
-      Math.abs(elem_fp.maximum),
     );
     const yPad = yBound * 1.08 || 1;
     const errBound = Math.max(1e-12, ...err.filter(Number.isFinite).map(Math.abs));
@@ -1003,11 +1306,14 @@ function mountExplorer(root) {
       yaxis: {
         ...yAxisStyle(pal, "x, y", [0.74, 1]),
         type: "linear",
-        range: fromSlider
-          ? undefined
-          : elem_fp.is_signed && !logAxis
-            ? [-yPad, yPad]
-            : [Math.min(0, lo) - (logAxis ? 0 : 0.05 * yPad), yPad],
+        ...(fromSlider
+          ? {}
+          : {
+              range:
+                elem_fp.is_signed && !logAxis
+                  ? [-yPad, yPad]
+                  : [Math.min(0, lo) - (logAxis ? 0 : 0.05 * yPad), yPad],
+            }),
       },
       yaxis2: {
         ...yAxisStyle(pal, "codes", [0.42, 0.62]),
@@ -1017,7 +1323,7 @@ function mountExplorer(root) {
       },
       yaxis3: {
         ...yAxisStyle(pal, "x − y", [0, 0.28]),
-        range: fromSlider ? undefined : [-errBound * 1.15, errBound * 1.15],
+        ...(fromSlider ? {} : { range: [-errBound * 1.15, errBound * 1.15] }),
       },
     };
 
@@ -1043,7 +1349,7 @@ function mountExplorer(root) {
           return;
         }
         setProbe(pt.x, false);
-        draw(false, true);
+        draw(true);
       });
     }
 
@@ -1127,7 +1433,7 @@ function mountExplorer(root) {
       writeKnobs(root, prefix, readKnobs(root, prefix));
     }
     syncPresetSelects();
-    draw(true);
+    draw();
   }
 
   elemPreset.addEventListener(
@@ -1139,7 +1445,9 @@ function mountExplorer(root) {
       syncing = true;
       applyPreset("#fe-elem", elemPreset.value);
       syncing = false;
-      draw(true);
+      syncPresetSelects();
+      openDetailsIfCustom();
+      draw();
     },
     on,
   );
@@ -1152,10 +1460,41 @@ function mountExplorer(root) {
       syncing = true;
       applyPreset("#fe-scale", scalePreset.value);
       syncing = false;
-      draw(true);
+      syncPresetSelects();
+      openDetailsIfCustom();
+      draw();
     },
     on,
   );
+  function applyElemChip(id) {
+    if (!ELEM_PRESETS[id]) {
+      return;
+    }
+    syncing = true;
+    root.querySelector("#fe-mode-element").checked = true;
+    elemPreset.value = id;
+    applyPreset("#fe-elem", id);
+    syncing = false;
+    if (codebookDetails) {
+      codebookDetails.open = false;
+    }
+    syncPresetSelects();
+    updateModeClass();
+    draw();
+  }
+
+  if (elemChips) {
+    elemChips.addEventListener(
+      "click",
+      (event) => {
+        const btn = event.target.closest("[data-elem-preset]");
+        if (btn) {
+          applyElemChip(btn.dataset.elemPreset);
+        }
+      },
+      on,
+    );
+  }
   recipes.addEventListener(
     "click",
     (event) => {
@@ -1181,7 +1520,7 @@ function mountExplorer(root) {
       () => {
         updateModeClass();
         syncPresetSelects();
-        draw(true);
+        draw();
       },
       on,
     );
@@ -1190,7 +1529,7 @@ function mountExplorer(root) {
         "input",
         () => {
           updateModeClass();
-          draw(false);
+          draw();
         },
         on,
       );
@@ -1203,7 +1542,7 @@ function mountExplorer(root) {
       const [lo, hi] = lastDomain;
       probe = domainToValue(Number(probeRange.value), lo, hi, lastLogAxis);
       probeNum.value = String(Number(probe.toPrecision(8)));
-      draw(false, true);
+      draw(true);
     },
     on,
   );
@@ -1211,9 +1550,73 @@ function mountExplorer(root) {
     "change",
     () => {
       setProbe(Number(probeNum.value), false);
-      draw(false, true);
+      draw(true);
     },
     on,
+  );
+
+  function bindDomainSlider(rangeEl, numEl, domainOf, logOf, write) {
+    if (!rangeEl || !numEl) {
+      return;
+    }
+    rangeEl.addEventListener(
+      "input",
+      () => {
+        dragging = rangeEl;
+        const [lo, hi] = domainOf();
+        const useLog = logOf();
+        write(domainToValue(Number(rangeEl.value), lo, hi, useLog));
+        draw(true);
+        dragging = null;
+      },
+      on,
+    );
+    numEl.addEventListener(
+      "change",
+      () => {
+        const v = Number(numEl.value);
+        if (!Number.isFinite(v)) {
+          return;
+        }
+        write(v);
+        draw(true);
+      },
+      on,
+    );
+  }
+
+  bindDomainSlider(
+    sRange,
+    sNum,
+    () => lastSDomain,
+    () => lastSLog,
+    (v) => {
+      sOverride = v === 0 ? null : v;
+    },
+  );
+  bindDomainSlider(
+    sgRange,
+    sgNum,
+    () => lastSgDomain,
+    () => lastSgLog,
+    (v) => {
+      if (v === 0 || !Number.isFinite(v)) {
+        return;
+      }
+      root.querySelector("#fe-sg").value = String(v);
+    },
+  );
+  bindDomainSlider(
+    zRange,
+    zNum,
+    () => lastZDomain,
+    () => false,
+    (v) => {
+      if (!Number.isFinite(v)) {
+        return;
+      }
+      root.querySelector("#fe-z").value = String(v);
+    },
   );
 
   function resizePlot(el) {
@@ -1256,19 +1659,19 @@ function mountExplorer(root) {
 
   const theme = new MutationObserver(() => {
     if (root.isConnected) {
-      draw(false);
+      draw();
     }
   });
   for (const node of [document.documentElement, document.body]) {
     theme.observe(node, { attributes: true, attributeFilter: ["data-md-color-scheme", "data-md-color-media"] });
   }
   for (const input of document.querySelectorAll("input[data-md-color-scheme]")) {
-    input.addEventListener("change", () => draw(false), on);
+    input.addEventListener("change", () => draw(), on);
   }
   const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
   const onDark = () => {
     if (root.isConnected) {
-      draw(false);
+      draw();
     }
   };
   if (darkMq.addEventListener) {
@@ -1313,6 +1716,6 @@ function mountExplorer(root) {
   syncing = false;
   updateModeClass();
   syncPresetSelects();
-  draw(true);
+  draw();
   return cleanup;
 }

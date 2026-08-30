@@ -97,7 +97,10 @@ bfp8 = BlockFormat(FloatingPoint(1, 0, 7, 0, 8), ue8m0, 16, 127 / 64, "ocp_floor
 
 ```python
 hopper_fp8 = BlockFormat(e4m3, ue8m0, 128, 448.0, "amax_over_M")
-q4_0 = BlockFormat(e2m1, e4m3, 32, 8.0, "signed_peak")  # pair with an INT4 rounder; see tests
+fp16 = FloatingPoint(1, 5, 10, 15, 16)
+uint4 = FloatingPoint(0, 0, 4, -3, 4)
+gguf_q4_0 = BlockFormat(uint4, fp16, 32, 8.0, "nearest", zero_point=8)
+kleidiai_int4 = BlockFormat(uint4, fp16, 32, 8.0, "signed_peak", zero_point=8)
 ```
 
 ### Per-tensor / per-channel / per-token (block = full axis)
