@@ -1159,8 +1159,6 @@ function mountExplorer(root) {
       Math.abs(lo),
       Math.abs(hi),
       ...ys.filter(Number.isFinite).map(Math.abs),
-      Math.abs(mapCode(elem_fp.minimum)),
-      Math.abs(mapCode(elem_fp.maximum)),
     );
     const yPad = yBound * 1.08 || 1;
     const errBound = Math.max(1e-12, ...err.filter(Number.isFinite).map(Math.abs));
@@ -1308,11 +1306,14 @@ function mountExplorer(root) {
       yaxis: {
         ...yAxisStyle(pal, "x, y", [0.74, 1]),
         type: "linear",
-        range: fromSlider
-          ? undefined
-          : elem_fp.is_signed && !logAxis
-            ? [-yPad, yPad]
-            : [Math.min(0, lo) - (logAxis ? 0 : 0.05 * yPad), yPad],
+        ...(fromSlider
+          ? {}
+          : {
+              range:
+                elem_fp.is_signed && !logAxis
+                  ? [-yPad, yPad]
+                  : [Math.min(0, lo) - (logAxis ? 0 : 0.05 * yPad), yPad],
+            }),
       },
       yaxis2: {
         ...yAxisStyle(pal, "codes", [0.42, 0.62]),
@@ -1322,7 +1323,7 @@ function mountExplorer(root) {
       },
       yaxis3: {
         ...yAxisStyle(pal, "x − y", [0, 0.28]),
-        range: fromSlider ? undefined : [-errBound * 1.15, errBound * 1.15],
+        ...(fromSlider ? {} : { range: [-errBound * 1.15, errBound * 1.15] }),
       },
     };
 
