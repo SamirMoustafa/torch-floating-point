@@ -8,6 +8,10 @@
   --md-primary-fg-color--dark: var(--tfp-orange-dark);
   --md-accent-fg-color: #3b6fd8;
   --md-typeset-a-color: var(--tfp-orange);
+  --md-grid-max-width: 61rem;
+}
+
+body:has(.format-explorer) {
   --md-grid-max-width: 92rem;
 }
 
