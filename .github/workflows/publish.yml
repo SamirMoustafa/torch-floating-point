@@ -1,0 +1,100 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to PyPI even without a GitHub Release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-sdist:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install build tools and CPU torch
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Read version
+        id: version
+        run: echo "version=$(python version.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Build sdist
+        run: python -m build --sdist --no-isolation
+
+      - name: Check sdist
+        run: twine check dist/*
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*
+          if-no-files-found: error
+
+  publish-pypi:
+    needs: [build-sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install twine
+        run: |
+          python -m pip install --upgrade pip
+          pip install twine
+
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+
+      - name: Check if version exists on PyPI
+        id: check_version
+        env:
+          CURRENT_VERSION: ${{ needs.build-sdist.outputs.version }}
+        run: |
+          PACKAGE_NAME="torch-floating-point"
+          http_code=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "https://pypi.org/pypi/${PACKAGE_NAME}/${CURRENT_VERSION}/json")
+          if [ "$http_code" -eq 200 ]; then
+            echo "Version ${CURRENT_VERSION} already exists on PyPI, skipping upload."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif [ "$http_code" -eq 404 ]; then
+            echo "Version ${CURRENT_VERSION} does not exist on PyPI."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unexpected PyPI response HTTP ${http_code} for ${PACKAGE_NAME}==${CURRENT_VERSION}"
+            exit 1
+          fi
+
+      - name: Upload to PyPI
+        if: >
+          steps.check_version.outputs.exists == 'false' &&
+          (github.event_name == 'release' || github.event.inputs.upload == 'true')
+        run: python -m twine upload --verbose dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
