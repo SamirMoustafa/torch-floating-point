@@ -7,7 +7,8 @@ window.MathJax = {
   },
   options: {
     ignoreHtmlClass: ".*|",
-    processHtmlClass: "arithmatex",
+    /* TOC copies heading text without the arithmatex wrapper. */
+    processHtmlClass: "arithmatex|md-nav__item|md-ellipsis",
   },
 };
 

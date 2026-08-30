@@ -53,6 +53,12 @@ body:has(.format-explorer) {
   letter-spacing: -0.03em;
 }
 
+.md-nav__link mjx-container {
+  display: inline-block;
+  margin: 0;
+  vertical-align: middle;
+}
+
 .md-typeset .hero {
   text-align: center;
   margin: 0.25rem auto 1.75rem;
