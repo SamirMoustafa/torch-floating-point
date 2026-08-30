@@ -255,6 +255,7 @@ body:has(.format-explorer) {
   --fe-figures-h: calc(100dvh - var(--fe-chrome));
   --fe-block-plot-h: 14rem;
   --fe-block-plot-gap: 0.35rem;
+  --fe-block-knobs-h: 8.75rem;
   margin: 0.5rem 0 1rem;
 }
 
@@ -291,7 +292,9 @@ body:has(.format-explorer) {
 }
 
 .md-typeset .format-explorer.is-block .format-explorer__figures {
-  height: calc(var(--fe-figures-h) + var(--fe-block-plot-h) + var(--fe-block-plot-gap));
+  height: calc(
+    var(--fe-figures-h) + var(--fe-block-plot-h) + var(--fe-block-plot-gap) + var(--fe-block-knobs-h)
+  );
 }
 
 .md-typeset .format-explorer__toolbar,
@@ -569,6 +572,14 @@ body:has(.format-explorer) {
 .md-typeset .format-explorer__probe label {
   font-weight: 600;
   margin: 0;
+}
+
+.md-typeset .format-explorer__block-knobs {
+  display: none;
+}
+
+.md-typeset .format-explorer.is-block .format-explorer__block-knobs {
+  display: contents;
 }
 
 .md-typeset .format-explorer__probe input[type="number"] {

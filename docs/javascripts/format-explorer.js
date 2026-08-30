@@ -158,6 +158,9 @@ const BLOCK_RECIPES = {
 
 const X_WINDOWS = [
   { id: "full", label: "Full range" },
+  { id: "1", label: "±1" },
+  { id: "2", label: "±2" },
+  { id: "4", label: "±4" },
   { id: "8", label: "±8" },
   { id: "16", label: "±16" },
   { id: "32", label: "±32" },
@@ -383,7 +386,12 @@ function pythonSnippet(state, elem_fp, scale_fp) {
     }
     const extraStr = extra.length ? `, ${extra.join(", ")}` : "";
     lines.push(`spec = BlockFormat(elem_fp, scale_fp, ${size}, ${fmtM(state.M)}, ${JSON.stringify(state.scale_encode)}${extraStr})`);
-    lines.push("y = BlockRound(spec)(x)");
+    if (state.sOverride != null) {
+      lines.unshift("import torch");
+      lines.push(`y = BlockRound(spec)(x, scales=torch.tensor([${fmt(state.sOverride, 8)}]))`);
+    } else {
+      lines.push("y = BlockRound(spec)(x)");
+    }
   } else {
     lines.push("from floating_point import FloatingPoint, Round");
     lines.push("");
@@ -438,6 +446,46 @@ function valueToDomain(value, lo, hi, useLog) {
     return window.TFP.clamp((Math.log(value) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)), 0, 1);
   }
   return window.TFP.clamp((value - lo) / (hi - lo), 0, 1);
+}
+
+function scaleSliderDomain(fp) {
+  const lo = positiveMin(fp);
+  const hi = Math.max(fp.maximum, lo * 2);
+  return [lo, hi];
+}
+
+function sgSliderDomain(sg) {
+  if (!Number.isFinite(sg) || sg === 0) {
+    return [0.125, 8];
+  }
+  if (sg < 0) {
+    const mag = Math.max(Math.abs(sg), 0.125);
+    return [-mag * 4, -mag / 4];
+  }
+  return [Math.min(0.125, sg / 4), Math.max(8, sg * 4)];
+}
+
+function zSliderDomain(fp) {
+  const lo = fp.minimum;
+  const hi = fp.maximum;
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi) {
+    const pad = Math.max(Math.abs(lo) || 1, Math.abs(hi) || 1);
+    return [lo - pad, hi + pad];
+  }
+  const pad = 0.05 * (hi - lo);
+  return [lo - pad, hi + pad];
+}
+
+function setSlider(rangeEl, numEl, value, lo, hi, useLog) {
+  if (!rangeEl || !Number.isFinite(value)) {
+    return;
+  }
+  if (document.activeElement !== rangeEl) {
+    rangeEl.value = String(valueToDomain(value, lo, hi, useLog));
+  }
+  if (numEl && document.activeElement !== numEl) {
+    numEl.value = String(Number(value.toPrecision(8)));
+  }
 }
 
 function autoLog(fp) {
@@ -596,6 +644,12 @@ function mountExplorer(root) {
   const readout = root.querySelector("[data-fe-readout]");
   const probeRange = root.querySelector("#fe-probe");
   const probeNum = root.querySelector("#fe-probe-num");
+  const sRange = root.querySelector("#fe-s-range");
+  const sNum = root.querySelector("#fe-s-num");
+  const sgRange = root.querySelector("#fe-sg-range");
+  const sgNum = root.querySelector("#fe-sg-num");
+  const zRange = root.querySelector("#fe-z-range");
+  const zNum = root.querySelector("#fe-z-num");
   const errorBox = root.querySelector("[data-fe-error]");
 
   fillSelect(elemPreset, ELEM_PRESETS, true);
@@ -626,8 +680,16 @@ function mountExplorer(root) {
 
   let syncing = false;
   let probe = 1.5;
+  let sOverride = null;
   let lastLogAxis = false;
   let lastDomain = [0, 1];
+  let lastSDomain = [1e-3, 1];
+  let lastSLog = true;
+  let lastSgDomain = [0.125, 8];
+  let lastSgLog = true;
+  let lastZDomain = [-1, 1];
+  let lastEncodeKey = "";
+  let dragging = null;
   const abort = new AbortController();
   const on = { signal: abort.signal };
 
@@ -650,6 +712,7 @@ function mountExplorer(root) {
       blockW: Math.max(1, Math.trunc(Number(root.querySelector("#fe-block-w").value) || 16)),
       xWindow: xRange.value,
       logX: root.querySelector("#fe-logx").checked,
+      sOverride,
     };
   }
 
@@ -674,6 +737,8 @@ function mountExplorer(root) {
       return;
     }
     syncing = true;
+    sOverride = null;
+    lastEncodeKey = "";
     root.querySelector("#fe-mode-block").checked = true;
     elemPreset.value = recipe.elem;
     scalePreset.value = recipe.scale;
@@ -784,6 +849,17 @@ function mountExplorer(root) {
     if (state.block) {
       const amax = Number.isFinite(state.amax) ? state.amax : M;
       const stat = state.scale_encode === "signed_peak" ? amax / sg : Math.abs(amax) / sg;
+      const encodeKey = [
+        amax,
+        M,
+        state.scale_encode,
+        scale_fp.to_constructor("s"),
+        state.block,
+      ].join("|");
+      if (encodeKey !== lastEncodeKey) {
+        lastEncodeKey = encodeKey;
+        sOverride = null;
+      }
       try {
         s = window.TFP.encode_scale(stat, {
           elem_fp,
@@ -795,6 +871,26 @@ function mountExplorer(root) {
         errorBox.hidden = false;
         errorBox.textContent = err.message;
         return;
+      }
+      if (sOverride != null && Number.isFinite(sOverride) && sOverride !== 0) {
+        s = sOverride;
+      }
+      state.sOverride = sOverride;
+      lastSLog = autoLog(scale_fp) || scale_fp.maximum / Math.max(positiveMin(scale_fp), 1e-45) > 64;
+      lastSDomain = scaleSliderDomain(scale_fp);
+      lastZDomain = zSliderDomain(elem_fp);
+      if (dragging !== sgRange) {
+        lastSgLog = sg > 0;
+        lastSgDomain = sgSliderDomain(sg);
+      }
+      setSlider(sRange, sNum, s, lastSDomain[0], lastSDomain[1], lastSLog);
+      setSlider(sgRange, sgNum, sg, lastSgDomain[0], lastSgDomain[1], lastSgLog);
+      setSlider(zRange, zNum, z, lastZDomain[0], lastZDomain[1], false);
+      if (document.activeElement !== root.querySelector("#fe-sg")) {
+        root.querySelector("#fe-sg").value = String(sg);
+      }
+      if (document.activeElement !== root.querySelector("#fe-z")) {
+        root.querySelector("#fe-z").value = String(z);
       }
     }
 
@@ -1214,6 +1310,70 @@ function mountExplorer(root) {
       draw(false, true);
     },
     on,
+  );
+
+  function bindDomainSlider(rangeEl, numEl, domainOf, logOf, write) {
+    if (!rangeEl || !numEl) {
+      return;
+    }
+    rangeEl.addEventListener(
+      "input",
+      () => {
+        dragging = rangeEl;
+        const [lo, hi] = domainOf();
+        const useLog = logOf();
+        write(domainToValue(Number(rangeEl.value), lo, hi, useLog));
+        draw(false, true);
+        dragging = null;
+      },
+      on,
+    );
+    numEl.addEventListener(
+      "change",
+      () => {
+        const v = Number(numEl.value);
+        if (!Number.isFinite(v)) {
+          return;
+        }
+        write(v);
+        draw(false, true);
+      },
+      on,
+    );
+  }
+
+  bindDomainSlider(
+    sRange,
+    sNum,
+    () => lastSDomain,
+    () => lastSLog,
+    (v) => {
+      sOverride = v === 0 ? null : v;
+    },
+  );
+  bindDomainSlider(
+    sgRange,
+    sgNum,
+    () => lastSgDomain,
+    () => lastSgLog,
+    (v) => {
+      if (v === 0 || !Number.isFinite(v)) {
+        return;
+      }
+      root.querySelector("#fe-sg").value = String(v);
+    },
+  );
+  bindDomainSlider(
+    zRange,
+    zNum,
+    () => lastZDomain,
+    () => false,
+    (v) => {
+      if (!Number.isFinite(v)) {
+        return;
+      }
+      root.querySelector("#fe-z").value = String(v);
+    },
   );
 
   function resizePlot(el) {

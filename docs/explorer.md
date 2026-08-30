@@ -7,7 +7,7 @@ hide:
 
 Pick a documented layout or edit the `FloatingPoint` knobs. The plots are the same language as [Autograd](autograd.md): identity \(x\) dashed, \(y\) in orange, rounding error underneath. The codebook rug is every finite code in the current \(x\) window. Gradients stay on the Autograd page; this is the **forward** map.
 
-In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then \(y=(e-z)\,s\,s_g\). Geometry (`block_size`) does not change that 1-D transfer; the demo-block plot shows a linspace of length \(\min(k,64)\).
+In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then \(y=(e-z)\,s\,s_g\). Scrub \(s\), \(s_g\), and \(z\) under the plot (dragging \(s\) is a `scales=` override until absmax / \(M\) / the scale codebook change). Geometry (`block_size`) does not change that 1-D transfer; the demo-block plot shows a linspace of length \(\min(k,64)\).
 
 <div class="format-explorer" id="format-explorer">
   <noscript>
@@ -161,6 +161,17 @@ In block mode, \(s\) is `encode_scale` of the block absmax (of \(x/s_g\)), then 
         <label for="fe-probe">probe x</label>
         <input id="fe-probe" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.6" aria-valuemin="0" aria-valuemax="1">
         <input id="fe-probe-num" type="number" step="any" value="1.5" autocomplete="off" aria-label="probe x value">
+        <div class="format-explorer__block-knobs">
+          <label for="fe-s-range">s</label>
+          <input id="fe-s-range" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.5" aria-valuemin="0" aria-valuemax="1">
+          <input id="fe-s-num" type="number" step="any" value="1" autocomplete="off" aria-label="s value">
+          <label for="fe-sg-range">s_g</label>
+          <input id="fe-sg-range" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.5" aria-valuemin="0" aria-valuemax="1">
+          <input id="fe-sg-num" type="number" step="any" value="1" autocomplete="off" aria-label="s_g value">
+          <label for="fe-z-range">z</label>
+          <input id="fe-z-range" class="ste-widget__slider" type="range" min="0" max="1" step="0.0005" value="0.5" aria-valuemin="0" aria-valuemax="1">
+          <input id="fe-z-num" type="number" step="any" value="0" autocomplete="off" aria-label="z value">
+        </div>
       </div>
       <p class="format-explorer__readout" data-fe-readout aria-live="polite"></p>
       <div class="format-explorer__plot-frame">
