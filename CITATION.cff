@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it using these metadata.
+title: "Torch Floating Point: a PyTorch library for custom floating-point formats with automatic differentiation"
+abstract: A PyTorch library that rounds tensors onto a user-chosen IEEE-style floating-point codebook, with a straight-through estimator, CPU/CUDA kernels, and block-scaled Round for OCP MX and NVFP4.
+authors:
+  - family-names: Moustafa
+    given-names: Samir
+    orcid: https://orcid.org/0000-0002-0674-9667
+    email: samir.moustafa.97@gmail.com
+    affiliation: CeMM Research Center for Molecular Medicine, Vienna, Austria
+license: MIT
+repository-code: https://github.com/SamirMoustafa/torch-floating-point
+url: https://torch-floating-point.readthedocs.io/
+type: software
+keywords:
+  - PyTorch
+  - floating point
+  - quantization
+  - microscaling
+version: 0.0.21
+date-released: "2026-08-30"
