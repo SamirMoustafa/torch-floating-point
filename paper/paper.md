@@ -27,6 +27,7 @@ Torch Floating Point (`torch-floating-point`) is a PyTorch library that rounds a
 
 ```python
 from floating_point import FloatingPoint, Round
+
 # user-chosen floating-point or integer layout
 fp = FloatingPoint(...)
 y = Round(fp)(x)
