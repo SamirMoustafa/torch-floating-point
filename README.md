@@ -5,8 +5,8 @@
 
 ![python-3.10](https://img.shields.io/badge/python-3.10%2B-blue)
 ![pytorch-1.13.1](https://img.shields.io/badge/torch-2.4.1%2B-orange)
-![release-version](https://img.shields.io/badge/release-0.1-green)
-![license](https://img.shields.io/badge/license-GPL%202-red)
+![release-version](https://img.shields.io/badge/release-0.0.21-green)
+![license](https://img.shields.io/badge/license-MIT-green)
 </div>
 
 A PyTorch library for custom floating point quantization with autograd support. This library provides efficient implementations of custom floating point formats with automatic differentiation capabilities.
@@ -158,9 +158,11 @@ y = BlockRound(nvfp4, rounder=MyRound)(x)
 
 ## Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and pull-request expectations. Short version:
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Install development dependencies (`make setup-dev`)
+3. Install development dependencies (`make env`)
 4. Make your changes
 5. Run tests (`make test`)
 6. Run linting (`make lint`)
@@ -177,10 +179,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this library in your research, please cite:
 
 ```bibtex
-@software{moustafa2025torchfloatingpoint,
-  title={Torch Floating Point: A PyTorch library for custom floating point quantization},
+@software{moustafa2026torchfloatingpoint,
+  title={Torch Floating Point: a PyTorch library for custom floating-point formats with automatic differentiation},
   author={Samir Moustafa},
-  year={2025},
+  year={2026},
+  version={0.0.21},
   url={https://github.com/SamirMoustafa/torch-floating-point}
 }
 ```
