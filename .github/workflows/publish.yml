@@ -31,7 +31,7 @@ jobs:
       - name: Install build tools and CPU torch
         run: |
           python -m pip install --upgrade pip
-          pip install build twine
+          pip install build twine setuptools wheel
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Read version

@@ -7,14 +7,14 @@ help: ## Show this help message
 env: ## Create virtual environment from pyproject.toml
 	python -m venv .venv
 	.venv/bin/pip install --upgrade pip setuptools wheel
-	.venv/bin/pip install -e ".[dev]"
+	.venv/bin/pip install --no-build-isolation -e ".[dev]"
 	.venv/bin/pip install pytest parameterized numpy
 
 install: ## Install the package in development mode
-	pip install -e .
+	pip install --no-build-isolation -e .
 
 install-dev: ## Install the package with development dependencies
-	pip install -e ".[dev]"
+	pip install --no-build-isolation -e ".[dev]"
 	pip install pytest parameterized
 
 test: ## Run tests
@@ -56,11 +56,11 @@ build-sdist: ## Build source distribution only
 check: ## Check the built package
 	twine check dist/*
 
-publish-test: ## Publish to TestPyPI
-	twine upload --repository testpypi dist/*
+publish-test: ## Publish sdist to TestPyPI
+	twine upload --repository testpypi dist/*.tar.gz
 
-publish: ## Publish to PyPI
-	twine upload dist/*
+publish: ## Publish sdist to PyPI (never upload a local .whl)
+	twine upload dist/*.tar.gz
 
 
 
@@ -71,7 +71,7 @@ pre-commit-run: ## Run pre-commit on all files
 	pre-commit run --all-files
 
 setup-dev: ## Set up development environment
-	pip install -e ".[dev]"
+	pip install --no-build-isolation -e ".[dev]"
 	pip install pytest parameterized
 	pre-commit install
 
@@ -88,7 +88,7 @@ check-deps: ## Check for outdated dependencies
 
 update-deps: ## Update dependencies
 	pip install --upgrade pip setuptools wheel
-	pip install --upgrade -e ".[dev]"
+	pip install --upgrade --no-build-isolation -e ".[dev]"
 	pip install --upgrade pytest parameterized numpy
 
 

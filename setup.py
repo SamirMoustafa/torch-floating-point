@@ -5,6 +5,7 @@ Setup script for torch-floating-point
 
 import os
 import platform
+import shutil
 import subprocess
 import sys
 from os import environ, path
@@ -13,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import torch
 from setuptools import find_packages, setup
 from torch import cuda
-from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
+from torch.utils.cpp_extension import CUDA_HOME, BuildExtension, CppExtension, CUDAExtension
 from wheel.bdist_wheel import bdist_wheel
 
 from version import __version__
@@ -80,8 +81,44 @@ def detect_cpu_flags():
     return flags
 
 
+def _env_flag(name):
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+
+
+def _has_cuda_toolkit():
+    if CUDA_HOME:
+        return True
+    return shutil.which("nvcc") is not None
+
+
+def build_cuda_extension():
+    """Compile CUDA when the installed torch is a CUDA build and nvcc is present.
+
+    A live GPU is not required. FORCE_CPU=1 skips CUDA; FORCE_CUDA=1 requires it.
+    """
+    if _env_flag("FORCE_CPU"):
+        print("FORCE_CPU=1: building CPU extension.")
+        return False
+    if _env_flag("FORCE_CUDA"):
+        if not _has_cuda_toolkit():
+            raise RuntimeError("FORCE_CUDA=1 but no CUDA toolkit found (set CUDA_HOME or put nvcc on PATH).")
+        print("FORCE_CUDA=1: building CUDA extension.")
+        return True
+    if torch.version.cuda is None:
+        print("Installed torch is CPU-only: building CPU extension.")
+        return False
+    if not _has_cuda_toolkit():
+        print(
+            "CUDA torch is installed but no CUDA toolkit (nvcc / CUDA_HOME) was found; "
+            "building CPU extension. Set FORCE_CUDA=1 to require CUDA, or FORCE_CPU=1 to skip it."
+        )
+        return False
+    print(f"CUDA toolkit found (torch.version.cuda={torch.version.cuda}): building CUDA extension.")
+    return True
+
+
 def detect_cuda_flags():
-    """Auto-detect CUDA-specific optimization flags"""
+    """Device-specific nvcc flags. Empty when no GPU is attached (arch list stays default)."""
     flags = []
 
     if not cuda.is_available():
@@ -177,8 +214,10 @@ def detect_system_flags():
     return flags
 
 
-# Automatically detect and set CUDA architectures
-if cuda.is_available() and "TORCH_CUDA_ARCH_LIST" not in environ:
+BUILD_CUDA = build_cuda_extension()
+
+# GPU-based arch list only when a device exists; otherwise leave PyTorch's default or the user's env.
+if BUILD_CUDA and cuda.is_available() and "TORCH_CUDA_ARCH_LIST" not in environ:
     arch_list = []
     for i in range(cuda.device_count()):
         capability = cuda.get_device_capability(i)
@@ -241,8 +280,7 @@ class CustomWheel(bdist_wheel):
 
 
 # Conditionally add CUDA support
-if cuda.is_available():
-    print("CUDA detected, building with CUDA support.")
+if BUILD_CUDA:
     extension_class = CUDAExtension
     sources.append("floating_point/float_round_cuda.cu")
     define_macros.append(("WITH_CUDA", None))
@@ -253,7 +291,6 @@ if cuda.is_available():
     else:
         extra_compile_args["nvcc"] = ["-O2", f"-D_GLIBCXX_USE_CXX11_ABI={_torch_cxx11_abi}"]
 else:
-    print("No CUDA detected, building without CUDA support.")
     extension_class = CppExtension
 
 setup(
