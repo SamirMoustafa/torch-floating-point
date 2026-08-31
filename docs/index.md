@@ -34,7 +34,7 @@ hide:
 === "PyPI"
 
     ```bash
-    pip install torch-floating-point
+    pip install torch-floating-point --no-build-isolation
     ```
 
 === "From source"
@@ -42,10 +42,10 @@ hide:
     ```bash
     git clone https://github.com/SamirMoustafa/torch-floating-point.git
     cd torch-floating-point
-    pip install -e .
+    pip install --no-build-isolation -e .
     ```
 
-Requires **Python 3.10+** and **PyTorch 2.4+**. CUDA is used when the install machine has a GPU; otherwise a CPU extension is built.
+Requires **Python 3.10+** and **PyTorch 2.4+**. Install that torch first, then this package with `--no-build-isolation`. A C++ compiler is required. CUDA kernels compile when that torch is a CUDA build and `nvcc` is available (pip torch does not ship `nvcc`); otherwise a CPU extension is built. `FORCE_CPU=1` / `FORCE_CUDA=1` override the default.
 
 ## Quick start
 

@@ -20,18 +20,22 @@ A PyTorch library for custom floating point quantization with autograd support. 
 
 ## Installation
 
+Install the PyTorch build you will run first (CPU or CUDA). This package compiles an extension against that torch.
+
 ### From PyPI (Recommended)
 
 ```bash
-pip install torch-floating-point
+pip install torch-floating-point --no-build-isolation
 ```
+
+A C++ compiler is required. For CUDA kernels, also install a CUDA toolkit that matches `torch.version.cuda` (pip's torch wheel does not include `nvcc`). Set `FORCE_CPU=1` to skip CUDA, or `FORCE_CUDA=1` to require it.
 
 ### From Source
 
 ```bash
 git clone https://github.com/SamirMoustafa/torch-floating-point.git
 cd torch-floating-point
-pip install -e .
+pip install --no-build-isolation -e .
 ```
 
 ## Quick Start

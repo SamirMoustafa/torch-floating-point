@@ -8,10 +8,10 @@ Thanks for considering a contribution to `torch-floating-point`.
 git clone https://github.com/SamirMoustafa/torch-floating-point.git
 cd torch-floating-point
 make env
-# or: pip install -e ".[dev]" && pip install pytest parameterized numpy
+# or: pip install --no-build-isolation -e ".[dev]" && pip install pytest parameterized numpy
 ```
 
-The C++/CUDA extension builds at install time. A CPU extension is enough for the default test suite. CUDA kernels compile when the machine has a GPU toolchain; GitHub Actions CI installs CPU PyTorch only and does **not** validate CUDA.
+The C++/CUDA extension builds at install time against the torch already in the environment (`--no-build-isolation`). A CPU extension is enough for the default test suite. CUDA kernels compile when that torch is a CUDA build and `nvcc` is on `PATH` (or `CUDA_HOME` is set), not merely because a GPU is attached. `FORCE_CPU=1` / `FORCE_CUDA=1` override the default. GitHub Actions CI installs CPU PyTorch only and does **not** validate CUDA.
 
 ## Workflow
 
