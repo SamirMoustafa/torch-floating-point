@@ -1,6 +1,6 @@
 # Optimized multi-stage Dockerfile for faster builds
 # docker build -t torch-floating-point-test .
-# docker run --rm torch-floating-point-test python -m pytest test/round.py test/data_types.py -v
+# docker run --rm torch-floating-point-test python -m pytest test/ -v
 
 # Base stage with PyTorch and system dependencies
 FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime AS base
@@ -55,7 +55,7 @@ COPY --from=builder /app/build/ ./build/
 COPY --from=builder /app/test/ ./test/
 
 # Run tests to verify everything works (can be skipped with --target runtime)
-RUN pytest --log-cli-level=DEBUG --capture=tee-sys test/round.py test/data_types.py -vvv -s
+RUN pytest --log-cli-level=DEBUG --capture=tee-sys test/ -vvv -s
 
 # Default command - just provide a shell for manual execution
 CMD ["/bin/bash"]
