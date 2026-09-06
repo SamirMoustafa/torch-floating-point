@@ -273,9 +273,10 @@ define_macros = []
 class CustomWheel(bdist_wheel):
     def get_tag(self):
         python, abi, plat = bdist_wheel.get_tag(self)
-        # Use manylinux_2_28_x86_64 for Linux wheels
         if plat.startswith("linux"):
-            plat = "manylinux_2_28_x86_64"
+            machine = platform.machine()
+            if machine in ("x86_64", "aarch64"):
+                plat = f"manylinux_2_28_{machine}"
         return python, abi, plat
 
 
