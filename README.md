@@ -5,7 +5,7 @@
 
 ![python-3.10](https://img.shields.io/badge/python-3.10%2B-blue)
 ![pytorch-1.13.1](https://img.shields.io/badge/torch-2.4.1%2B-orange)
-![release-version](https://img.shields.io/badge/release-0.0.21-green)
+![release-version](https://img.shields.io/badge/release-0.0.22-green)
 ![license](https://img.shields.io/badge/license-MIT-green)
 </div>
 
@@ -187,7 +187,7 @@ If you use this library in your research, please cite:
   title={Torch Floating Point: a PyTorch library for custom floating-point formats with automatic differentiation},
   author={Samir Moustafa},
   year={2026},
-  version={0.0.21},
+  version={0.0.22},
   url={https://github.com/SamirMoustafa/torch-floating-point}
 }
 ```
