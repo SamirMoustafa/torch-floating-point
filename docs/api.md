@@ -1,6 +1,6 @@
 # API
 
-Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `round`, `inplace`.
+Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `tensor_scale`, `round`, `inplace`.
 
 ## `FloatingPoint`
 
@@ -56,10 +56,11 @@ BlockRound(spec)
 BlockRound(spec, rounder=MyRound)
 ```
 
-Call as `rounder(x, scales=None, return_aux=False, s_global=None)`. Reconstruct is \(y = (e - z)\,s\,s_{\mathrm{global}}\). Hardware packings (NVFP4, MX, …) are `BlockFormat(...)` in [Block scale](block.md), not package exports.
+Call as `rounder(x, scales=None, return_aux=False, s_global=None)`. Reconstruct is \(y = (e - z)\,s\,s_{\mathrm{global}}\). Hardware packings (NVFP4, MX, …) are `BlockFormat(...)` in [Block scale](block.md), not package exports. NVFP4 two-level: `s_global=tensor_scale(x, spec)` \(=\mathrm{amax}/(M\cdot\mathrm{scale\_fp.maximum})\).
 
 ```python
 block_round(x, spec, scales=None, rounder=Round, return_aux=False, s_global=None)
+tensor_scale(x, spec)  # detached amax / (M * scale_fp.maximum)
 ```
 
 ## Functional round

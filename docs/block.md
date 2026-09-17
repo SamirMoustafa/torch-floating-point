@@ -2,12 +2,12 @@
 
 Shared per-block scale: \(y = (e - z)\,s\,s_{\mathrm{global}}\) with \(e = \mathrm{round}(x / (s\,s_{\mathrm{global}}) + z)\). The library takes a `BlockFormat` — two `FloatingPoint` codebooks, block geometry, \(M\), and a named scale-encode policy. It does not ship named hardware packings. Byte layouts, fused MMA, and vendor SDKs are out of scope; this is numeric reconstruct only. The [Explorer](explorer.md) plots that reconstruct for any recipe.
 
-[OCP MX](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) ([Rouhani et al., 2023](https://arxiv.org/abs/2310.10537)) uses UE8M0 scales over blocks of 32. **NVFP4** uses block 16, E4M3 (UE4M3) micro-scales, and an optional FP32 tensor scale ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)). See [Formats](formats.md) for constructors. The tables below are how to *match* those packings, not a catalog of exports.
+[OCP MX](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) ([Rouhani et al., 2023](https://arxiv.org/abs/2310.10537)) uses UE8M0 scales over blocks of 32. **NVFP4** uses block 16, E4M3 (UE4M3) micro-scales, and an FP32 tensor scale ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/), [cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types)). See [Formats](formats.md) for constructors. The tables below are how to *match* those packings, not a catalog of exports.
 
-The element map is a `Round` subclass (`rounder=`, default stock STE). Absmax detaches \(s\). Pass `scales=` for learnable QAT scales. Pass `s_global=` (or set `BlockFormat.s_global`) for a second-level tensor scale.
+The element map is a `Round` subclass (`rounder=`, default stock STE). Absmax detaches \(s\). Pass `scales=` for learnable QAT scales. Pass `s_global=` (or set `BlockFormat.s_global`) for a second-level tensor scale. CUDA NVFP4 two-level is `s_global=tensor_scale(x, spec)` \(=\mathrm{amax}/(6\times 448)\); cuBLAS `scaleDin` is the reciprocal used to compress before UE4M3.
 
 ```python
-from floating_point import BlockFormat, BlockRound, FloatingPoint
+from floating_point import BlockFormat, BlockRound, FloatingPoint, tensor_scale
 
 e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
 e4m3 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
@@ -19,7 +19,7 @@ mxfp4 = BlockFormat(e2m1, ue8m0, 32, 6.0, "ue8m0_ceil")
 
 y = BlockRound(nvfp4)(x)  # absmax scales, STE on x only
 y = BlockRound(nvfp4)(x, scales=s)  # gradients into scales
-y = BlockRound(nvfp4)(x, s_global=tensor_scale)
+y = BlockRound(nvfp4)(x, s_global=tensor_scale(x, nvfp4))  # CUDA two-level
 y = BlockRound(mxfp8)(x)
 y = BlockRound(mxfp4, rounder=MyRound)(x)
 ```
@@ -74,13 +74,14 @@ mxint8 = BlockFormat(FloatingPoint(1, 0, 7, 0, 8), ue8m0, 32, 127 / 64, "ocp_flo
 
 | Recipe | Notes | Source |
 | --- | --- | --- |
-| NVFP4 | E2M1 × UE4M3 + **`s_global`** FP32 | [NVFP4 blog](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/), [TE NVFP4](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/features/low_precision_training/nvfp4/nvfp4.html) |
+| NVFP4 | E2M1 × UE4M3 + **`s_global`** `tensor_scale` FP32 | [NVFP4 blog](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/), [TE NVFP4](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/features/low_precision_training/nvfp4/nvfp4.html), [cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types) |
 | Tensix BFP | 16-el **shared exp**, mag not minifloat \(e\) | [tt-isa FloatBitPatterns](https://github.com/tenstorrent/tt-isa-documentation/blob/main/WormholeB0/TensixTile/TensixCoprocessor/FloatBitPatterns.md) |
 | MLX `nvfp4` | software | [mlx.core.quantize](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.quantize.html) |
 | TPU 8t MXFP8-16 | **forum only — no fixture** | [forum](https://discuss.google.dev/t/inside-the-optimization-of-fp8-training-on-ironwood/336681/13) vs [8t blog](https://cloud.google.com/blog/products/compute/tpu-8t-and-tpu-8i-technical-deep-dive) |
 
 ```python
-nvfp4 = BlockFormat(e2m1, e4m3, 16, 6.0, "nearest")  # pass s_global= at call time
+nvfp4 = BlockFormat(e2m1, e4m3, 16, 6.0, "nearest")
+y = BlockRound(nvfp4)(x, s_global=tensor_scale(x, nvfp4))
 bfp8 = BlockFormat(FloatingPoint(1, 0, 7, 0, 8), ue8m0, 16, 127 / 64, "ocp_floor")
 ```
 
@@ -125,7 +126,7 @@ gaudi_moe = BlockFormat(e4m3, ue8m0, (30, 30), 448.0, "amax_over_M")
 
 ### Two-level / pair scales (not \(y=e\times s\) over 16)
 
-ISCA MX9/6/4 \(k_1=16\), \(k_2=2\) ([arXiv:2302.08007](https://arxiv.org/abs/2302.08007)) — not implemented (no \(s_{\mathrm{sub}}\in\{1,1/2\}\) hook). Maia 100 packing unpublished ([Hot Chips 2024 PDF](https://hc2024.hotchips.org/assets/program/conference/day2/81_HC2024.Microsoft.Xu.Ramakrishnan.final.v2.pdf)). NVFP4’s FP32 `s_global` **is** implemented.
+ISCA MX9/6/4 \(k_1=16\), \(k_2=2\) ([arXiv:2302.08007](https://arxiv.org/abs/2302.08007)) — not implemented (no \(s_{\mathrm{sub}}\in\{1,1/2\}\) hook). Maia 100 packing unpublished ([Hot Chips 2024 PDF](https://hc2024.hotchips.org/assets/program/conference/day2/81_HC2024.Microsoft.Xu.Ramakrishnan.final.v2.pdf)). NVFP4’s FP32 `s_global` **is** implemented (`tensor_scale`).
 
 ### Not simulated (unpublished \(k\) or not block-scale FP)
 

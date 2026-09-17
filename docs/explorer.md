@@ -197,7 +197,7 @@ In block mode, chips pick a recipe. Expand the codebook to customize encode, \(M
 - **CFloat8** omits Inf/NaN; the chips use Tesla’s usual biases \(7\) / \(15\). Change `bias` in the codebook for the 6-bit parameter.
 - **GGUF Q4_0** / **KleidiAI INT4** use an unsigned \(0\ldots 15\) codebook plus `zero_point=8` (nibble \(-8\)), IEEE FP16 scales, \(k=32\). They are not two’s-complement `Round`.
 - **Tensix BFP8** is MXINT8 mag with a shared exponent over \(k=16\) (not OCP \(k=32\)).
-- **UE4M3** is the E4M3-FN constructor; block `nearest` already takes \(\lvert\cdot\rvert\).
+- **UE4M3** is the E4M3-FN constructor; block `nearest` already takes \(\lvert\cdot\rvert\) (CUDA `CUDA_R_8F_UE4M3`). NVFP4 two-level is `s_global=tensor_scale(x, spec)` \(=\mathrm{amax}/(6\times 448)\).
 - **HiF8** is tapered — a single `FloatingPoint` cannot represent it. It is not in the preset list.
 - Rounding follows the CPU kernel (ties to even) except \(E=0\) (MXINT / BFP mag / UINT4), which snaps to the nearest finite codebook value.
 - Autograd estimators (STE, EWGS, ReSTE, …) are on [Autograd](autograd.md).
