@@ -26,6 +26,7 @@ __device__ __forceinline__ float float_round_one(
     float inv_mantissa_scale,
     int has_subnormals) {
     if (x_val == 0.0f) return x_val;
+    if (x_val != x_val) return x_val;
 
     const float s = copysignf(1.0f, x_val);
     const float x_abs = fabsf(x_val);

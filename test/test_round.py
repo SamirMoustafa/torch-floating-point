@@ -155,5 +155,39 @@ class TestE4M3FNSubnormalCodebook(unittest.TestCase):
         self.assertNotIn(0.0087890625, unique)
 
 
+class TestRoundPropagatesNaN(unittest.TestCase):
+    """Issue #26: Round must not map NaN to ±2^max_exp."""
+
+    fp16 = FloatingPoint(1, 5, 10, 15, 16)
+    e4m3fn = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
+    e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else []))
+    def test_fp16_and_e4m3fn_nan(self, device):
+        nan = float("nan")
+        nnan = math.copysign(float("nan"), -1.0)
+        x = torch.tensor([nan, nnan], dtype=torch.float32, device=device)
+        for fp in (self.fp16, self.e4m3fn):
+            y = Round(fp)(x)
+            self.assertTrue(torch.isnan(y).all(), f"{fp} Round(NaN) must be NaN")
+            self.assertFalse(torch.isfinite(y).any(), f"{fp} -NaN must not become finite")
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else []))
+    def test_e2m1_nan_not_maxnorm(self, device):
+        # #26 / QAT: NaN in → NaN out. Not CUDA __nv_cvt_float_to_fp4 (NaN → +6).
+        y = Round(self.e2m1)(torch.tensor([float("nan")], dtype=torch.float32, device=device))
+        self.assertTrue(math.isnan(float(y[0].cpu())))
+        self.assertNotEqual(float(y[0].cpu()), 6.0)
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else []))
+    def test_nan_clipped_ste_grad_is_zero(self, device):
+        x = torch.tensor([float("nan")], dtype=torch.float32, device=device, requires_grad=True)
+        Round(self.fp16)(x).sum().backward()
+        self.assertEqual(float(x.grad), 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

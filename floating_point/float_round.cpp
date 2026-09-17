@@ -55,6 +55,7 @@ torch::Tensor float_round_cpu_inplace(
     for (int idx = 0; idx < numel; ++idx) {
         float x_val = input_ptr[idx];
         if (x_val == 0.0f) continue;
+        if (x_val != x_val) continue;
 
         const float s = std::copysign(1.0f, x_val);
         const float x_abs = std::fabs(x_val);
