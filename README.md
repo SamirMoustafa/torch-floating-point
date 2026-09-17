@@ -144,10 +144,10 @@ fp8_e8m0 = FloatingPoint(sign_bits=0, exponent_bits=8, mantissa_bits=0, bias=127
 
 Shared per-block scale: `y = (e - z) * s * s_global` with `e = Round_elem(x / (s * s_global) + z)`. Absmax mode detaches `s` (STE on `x` only); pass `scales=` for learnable QAT scales with gradients. `s_global=` is the optional second-level tensor scale (NVFP4).
 
-OCP MX (MXFP8 / MXFP4) uses UE8M0 scales and `block_size=32`. **NVFP4** is NVIDIA-only: E2M1 + E4M3 (UE4M3) scales, `block_size=16`, plus FP32 `s_global` ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)). NVIDIA block UE8M0 uses `ue8m0_ceil`; the OCP sample is `ocp_floor`; AWS Trainium3 is `ocp_floor_x2`. Element-wise `Round(fp8_e8m0)` remains nearest. Recipe tables with source URLs: the docs.
+OCP MX (MXFP8 / MXFP4) uses UE8M0 scales and `block_size=32`. **NVFP4** is NVIDIA-only: E2M1 + E4M3 (UE4M3) scales, `block_size=16`, plus FP32 `s_global` ([NVIDIA, 2025](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)). Two-level CUDA is `s_global=tensor_scale(x, nvfp4)` (`amax / (6 * 448)`); cuBLAS `scaleDin` is the reciprocal. NVIDIA block UE8M0 uses `ue8m0_ceil`; the OCP sample is `ocp_floor`; AWS Trainium3 is `ocp_floor_x2`. Element-wise `Round(fp8_e8m0)` remains nearest. Recipe tables with source URLs: the docs.
 
 ```python
-from floating_point import BlockFormat, BlockRound
+from floating_point import BlockFormat, BlockRound, tensor_scale
 
 nvfp4 = BlockFormat(fp4_e2m1, fp8_e4m3fn, 16, 6.0, "nearest")
 mxfp8 = BlockFormat(fp8_e4m3fn, fp8_e8m0, 32, 448.0, "ue8m0_ceil")
@@ -155,7 +155,7 @@ mxfp8_ocp = BlockFormat(fp8_e4m3fn, fp8_e8m0, 32, 448.0, "ocp_floor")
 
 y = BlockRound(nvfp4)(x)  # absmax scales, STE on x only
 y = BlockRound(nvfp4)(x, scales=learnable_s)  # grad into scales
-y = BlockRound(nvfp4)(x, s_global=tensor_scale)
+y = BlockRound(nvfp4)(x, s_global=tensor_scale(x, nvfp4))  # CUDA two-level
 y = BlockRound(mxfp8)(x)
 y = BlockRound(nvfp4, rounder=MyRound)(x)
 ```

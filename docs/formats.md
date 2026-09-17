@@ -41,7 +41,7 @@ E4M3 and E5M2 are the [OCP OFP8](https://www.opencompute.org/documents/ocp-8-bit
 | E4M3 max 240 | `FloatingPoint(1, 4, 3, 7, 8, reserved_exponent=True)` | Inf2/Trn2 cFP8 ([Neuron data types](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-features/data-types.html)), Graphcore F143 ([Poplar types](https://docs.graphcore.ai/projects/poplar-user-guide/en/latest/supported-types.html)) |
 | E5M2 | `FloatingPoint(1, 5, 2, 15, 8, reserved_exponent=True)` | OFP8; CUDA `__nv_fp8_e5m2` |
 | UE8M0 | `FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)` | MX scale; \(2^{E-127}\); code 255 is NaN. CUDA `__nv_fp8_e8m0` |
-| UE4M3 | same constructor as E4M3-FN | NVFP4 block scale: E4M3 bits, **sign ignored** ([cuBLAS block scaling](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types)). `scale_encode="nearest"` already takes \(\lvert\cdot\rvert\) |
+| UE4M3 | same constructor as E4M3-FN | NVFP4 block scale: E4M3 bits, **sign ignored** (`CUDA_R_8F_UE4M3`, [cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types)). `scale_encode="nearest"` already takes \(\lvert\cdot\rvert\) |
 | E4M3 FNUZ | `FloatingPoint(1, 4, 3, 8, 8, reserved_exponent=False)` | Approximate [MI300 HIP FNUZ](https://rocmdocs.amd.com/en/develop/how-to/rocm-for-ai/inference-optimization/workload.html) (bias 8). Negative-zero NaN is not modeled |
 | E5M2 FNUZ | `FloatingPoint(1, 5, 2, 16, 8, reserved_exponent=False)` | Same caveat |
 | CFloat8 E4M3 | `FloatingPoint(1, 4, 3, 7, 8, reserved_exponent=False)` | Tesla Dojo: no Inf/NaN (all-ones is finite, max \(\pm 480\)). Bias is a 6-bit parameter \(0\ldots 63\); the constructor uses \(7\). [Dojo PDF](https://digitalassets.tesla.com/tesla-contents/image/upload/tesla-dojo-technology.pdf) |
@@ -96,3 +96,4 @@ Signed integer grids used with `rounder=` (override `forward` to `round().clamp(
 - Micikevicius, P., et al. *FP8 Formats for Deep Learning*. 2022. <https://arxiv.org/abs/2209.05433>
 - Rouhani, B. D., et al. *Microscaling Data Formats for Deep Learning*. 2023. <https://arxiv.org/abs/2310.10537>
 - NVIDIA. *Introducing NVFP4 for Efficient and Accurate Low-Precision Inference*. 2025. <https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/>
+- NVIDIA. *cuBLAS: 16/32-element 1D block scaling*. <https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types>

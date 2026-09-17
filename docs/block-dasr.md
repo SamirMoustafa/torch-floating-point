@@ -2,7 +2,7 @@
 
 One pick per axis. Do not mix a hard STE backward onto this softmax. Estimators: [Autograd](autograd.md). NVFP4 packing: [Block scale](block.md).
 
-NVIDIA’s NVFP4 ([blog](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/)): E2M1 elements (`__nv_fp4_e2m1`, max \(\pm 6\)), one E4M3-FN scale (`__nv_fp8_e4m3`) per block of 16, \(s = \operatorname{encode}(\mathrm{amax}/6)\). Reconstruction \(y = e\,s\).
+NVIDIA’s NVFP4 ([blog](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/), [cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html#element-1d-block-scaling-for-fp8-and-fp4-data-types)): E2M1 elements (`__nv_fp4_e2m1`, max \(\pm 6\)), one E4M3-FN scale (`__nv_fp8_e4m3`, UE4M3 sign ignored) per block of 16, \(s = \operatorname{encode}(\mathrm{amax}/6)\). Reconstruction \(y = e\,s\). Two-level CUDA uses \(s_{\mathrm{global}}=\mathrm{amax}/(6\times 448)\) (`tensor_scale`).
 
 | Axis | Pick |
 | --- | --- |

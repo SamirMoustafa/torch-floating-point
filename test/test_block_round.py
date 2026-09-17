@@ -4,7 +4,7 @@ import torch
 from parameterized import parameterized
 from torch import nn
 
-from floating_point import BlockFormat, BlockRound, FloatingPoint, Round, block_round
+from floating_point import BlockFormat, BlockRound, FloatingPoint, Round, block_round, tensor_scale
 from floating_point.block_round import encode_scale
 
 DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
@@ -81,6 +81,26 @@ class TestBlockRoundNVFP4(unittest.TestCase):
         x = torch.randn(3, 10)
         with self.assertRaises(ValueError):
             block_round(x, NVFP4)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_tensor_scale_covers_amax_beyond_elem_times_scale(self, device):
+        peak = NVFP4.M * float(NVFP4.scale_fp.maximum)
+        x = torch.zeros(1, 32, device=device)
+        x[0, 0] = 10000.0
+        sg = tensor_scale(x, NVFP4)
+        self.assertAlmostEqual(float(sg), 10000.0 / peak, places=5)
+        y, s, e = block_round(x, NVFP4, s_global=sg, return_aux=True)
+        compress = peak / 10000.0
+        s_from_compress = encode_scale((x * compress).abs().amax().reshape(1, 1), NVFP4)
+        self.assertAlmostEqual(float(s.reshape(-1)[0]), float(s_from_compress), places=5)
+        self.assertAlmostEqual(float(y[0, 0]), 10000.0, places=3)
+        self.assertAlmostEqual(float(e[0, 0]), 6.0, places=5)
+        y1 = block_round(x, NVFP4)
+        self.assertAlmostEqual(float(y1[0, 0]), peak, places=3)
+
+    def test_tensor_scale_zero_is_one(self):
+        x = torch.zeros(1, 16)
+        self.assertEqual(float(tensor_scale(x, NVFP4)), 1.0)
 
 
 class TestBlockRoundMXFP8(unittest.TestCase):

@@ -70,6 +70,18 @@ def _block_hw(spec: BlockFormat) -> Tuple[int, ...]:
     return (int(spec.block_size[0]), int(spec.block_size[1]))
 
 
+def tensor_scale(x: Tensor, spec: BlockFormat) -> Tensor:
+    """Detached ``amax(x) / (M * scale_fp.maximum)`` for use as ``s_global``.
+
+    Zero ``amax`` returns ``1``. The reciprocal is the matching compress factor.
+    """
+    peak = float(spec.M) * float(spec.scale_fp.maximum)
+    if not math.isfinite(peak) or peak <= 0.0:
+        raise ValueError(f"M * scale_fp.maximum must be finite and positive, got {peak}")
+    amax = x.detach().abs().amax()
+    return torch.where(amax == 0, torch.ones_like(amax), amax / peak)
+
+
 def _positive_finite_values(fp: FloatingPoint) -> List[float]:
     return [v for v in fp.values if math.isfinite(v) and v > 0.0]
 
