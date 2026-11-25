@@ -5,7 +5,15 @@ import torch
 from parameterized import parameterized
 from torch import nn
 
-from floating_point import BlockFormat, BlockRound, FloatingPoint, Round, block_round, tensor_scale
+from floating_point import (
+    BlockFormat,
+    BlockRound,
+    FloatingPoint,
+    Round,
+    block_round,
+    block_round_select,
+    tensor_scale,
+)
 from floating_point.block_round import _SCALE_ENCODES, encode_scale
 
 DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
@@ -412,3 +420,99 @@ class TestAffineInt4(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBlockRoundSelect(unittest.TestCase):
+    """Issue #48: per-block choice among several block formats by error."""
+
+    SIX = BlockFormat(E2M1, E4M3, 4, 6.0, "nearest")
+    FOUR = BlockFormat(E2M1, E4M3, 4, 4.0, "nearest")
+    INT4 = FloatingPoint(1, 0, 3, 0, 4)
+
+    @staticmethod
+    def _manual(x, specs, s_globals, error, k):
+        best_y = best_err = choice = None
+        for i, (spec, g) in enumerate(zip(specs, s_globals)):
+            y = block_round(x, spec, s_global=g)
+            d = (y - x).unflatten(-1, (-1, k))
+            err = {"mse": (d**2).sum(-1), "mae": d.abs().sum(-1), "abs_max": d.abs().amax(-1)}[error]
+            if i == 0:
+                best_y, best_err, choice = y, err, torch.zeros_like(err, dtype=torch.long)
+                continue
+            better = err < best_err
+            best_y = torch.where(better.repeat_interleave(k, -1), y, best_y)
+            best_err = torch.where(better, err, best_err)
+            choice = torch.where(better, torch.full_like(choice, i), choice)
+        return best_y, choice
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_issue_example(self, device):
+        x = torch.tensor([[6.0, 5.0, 2.5, 1.0, 6.0, 3.9, 3.9, 0.4]], device=device)
+        g = x.abs().max() / (6 * 256)
+        y, choice = block_round_select(x, [self.SIX, self.FOUR], s_global=g, error="mse")
+        self.assertEqual(y.tolist(), [[6.0, 4.5, 2.25, 0.75, 6.0, 4.0, 4.0, 0.5]])
+        self.assertEqual(choice.dtype, torch.long)
+        self.assertEqual(choice.tolist(), [[[1], [0]]])
+        _, s, _ = block_round(x, self.SIX, s_global=g, return_aux=True)
+        self.assertEqual(choice.shape, s.shape)
+
+    @parameterized.expand([(d, e) for d in DEVICES for e in ("mse", "mae", "abs_max")])
+    def test_matches_manual_composition(self, device, error):
+        gen = torch.Generator().manual_seed(48)
+        x = torch.randn(8, 64, generator=gen).to(device)
+        specs = [self.SIX, self.FOUR]
+        gs = [x.abs().max() / (6 * 256), x.abs().max() / (4 * 384)]
+        y, choice = block_round_select(x, specs, s_global=gs, error=error)
+        y_ref, choice_ref = self._manual(x, specs, gs, error, 4)
+        self.assertTrue(torch.equal(y, y_ref))
+        self.assertTrue(torch.equal(choice.squeeze(-1), choice_ref))
+        self.assertEqual(set(choice.unique().tolist()), {0, 1})
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_tie_keeps_first_spec(self, device):
+        # [6, 3, 0, 0] is exact under both peaks (scales 1 and 1.5): zero error twice.
+        x = torch.tensor([[6.0, 3.0, 0.0, 0.0]], device=device)
+        for specs in ([self.SIX, self.FOUR], [self.FOUR, self.SIX]):
+            y, choice = block_round_select(x, specs)
+            self.assertTrue(torch.equal(y, x))
+            self.assertEqual(choice.tolist(), [[[0]]])
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_if4_pair_uses_both_formats(self, device):
+        gen = torch.Generator().manual_seed(48)
+        x = torch.randn(16, 64, generator=gen).to(device).requires_grad_()
+        specs = [BlockFormat(E2M1, E4M3, 16, 6.0, "nearest"), BlockFormat(self.INT4, E4M3, 16, 1.75, "nearest")]
+        amax = x.detach().abs().max()
+        gs = [amax / (6 * 448), amax / (1.75 * 448)]
+        y, choice = block_round_select(x, specs, s_global=gs)
+        self.assertEqual(tuple(choice.shape), (16, 4, 1))
+        self.assertEqual(set(choice.unique().tolist()), {0, 1})
+        y_ref, choice_ref = self._manual(x.detach(), specs, gs, "mse", 16)
+        self.assertTrue(torch.equal(y.detach(), y_ref))
+        self.assertTrue(torch.equal(choice.squeeze(-1), choice_ref))
+        y.sum().backward()
+        self.assertTrue(torch.isfinite(x.grad).all())
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_single_spec_equals_block_round(self, device):
+        gen = torch.Generator().manual_seed(48)
+        x = torch.randn(3, 6, 10, generator=gen).to(device)
+        spec = BlockFormat(E2M1, E4M3, (4, 4), 6.0, "nearest", pad="zero")
+        y, choice = block_round_select(x, [spec])
+        y_ref, s, _ = block_round(x, spec, return_aux=True)
+        self.assertTrue(torch.equal(y, y_ref))
+        self.assertEqual(choice.shape, s.shape)
+        self.assertEqual(int(choice.abs().sum()), 0)
+
+    def test_bad_arguments_raise(self):
+        x = torch.ones(2, 16)
+        with self.assertRaisesRegex(ValueError, "block layout"):
+            block_round_select(x, [self.SIX, BlockFormat(E2M1, E4M3, 8, 4.0, "nearest")])
+        with self.assertRaisesRegex(ValueError, "block layout"):
+            block_round_select(x, [self.SIX, BlockFormat(E2M1, E4M3, 4, 4.0, "nearest", dims=(-2,), pad="zero")])
+        with self.assertRaisesRegex(ValueError, "error must be"):
+            block_round_select(x, [self.SIX], error="l2")
+        with self.assertRaisesRegex(ValueError, "s_global has 1 entries"):
+            block_round_select(x, [self.SIX, self.FOUR], s_global=[1.0])
+        with self.assertRaisesRegex(ValueError, "at least one"):
+            block_round_select(x, [])

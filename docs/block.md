@@ -140,3 +140,27 @@ MTIA MX8/MX4 packing ([Meta blog](https://ai.meta.com/blog/meta-mtia-scale-ai-ch
 - **Learnable** (`scales=`): same element round; `y = (e - z) * s * s_g` so `s` gets gradients. See [Autograd](autograd.md). Override the element map with `rounder=` — [Example](block-dasr.md).
 
 `return_aux=True` yields `(y, s, elems)`.
+
+## Per-block format choice
+
+`block_round_select` rounds `x` with several specs and keeps, per block, the one with the smallest error, together with its index. Four Over Six ([fouroversix](https://github.com/mit-han-lab/fouroversix), `scale_rule` `mse` / `mae` / `abs_max`) scales the block peak to 6 or to 4; IF4 picks FP4 or INT4 elements under the same E4M3 scale code.
+
+```python
+from floating_point import block_round_select
+
+six = BlockFormat(e2m1, e4m3, 16, 6.0, "nearest")
+four = BlockFormat(e2m1, e4m3, 16, 4.0, "nearest")
+g = x.abs().max() / (6 * 256)  # tensor peak on scale code 256: room for the factor 1.5
+y, choice = block_round_select(x, [six, four], s_global=g, error="mse")
+
+int4 = FloatingPoint(1, 0, 3, 0, 4)
+amax = x.abs().max()
+if4 = [six, BlockFormat(int4, e4m3, 16, 1.75, "nearest")]
+y, choice = block_round_select(x, if4, s_global=[amax / (6 * 448), amax / (1.75 * 448)])
+```
+
+- `error`: block sum of squares (`"mse"`), sum of magnitudes (`"mae"`), or largest magnitude (`"abs_max"`) of `y - x`. With `pad="zero"` the padded positions do not count.
+- Ties go to the earlier spec; a later spec wins only when strictly better.
+- `choice`: `int64` spec index per block, shaped like the `return_aux` scales (`(..., n_blocks, 1)` or `(..., n_h, 1, n_w, 1)`).
+- `s_global`: `None` (each spec's own), one value for all specs, or a list / tuple with one entry per spec.
+- Specs must share `block_size` and `dims`; otherwise `ValueError`. Absmax only (no `scales=`). Gradients are the STE of the selected spec.

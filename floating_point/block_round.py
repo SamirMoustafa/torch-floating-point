@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Type, Union
+from typing import List, Optional, Sequence, Tuple, Type, Union
 
 import torch
 from torch import Tensor
@@ -420,3 +420,60 @@ class BlockRound:
         s_global: Optional[Union[Tensor, float]] = None,
     ) -> Union[Tensor, Tuple[Tensor, Tensor, Tensor]]:
         return block_round(x, self.spec, scales=scales, rounder=self.rounder, return_aux=return_aux, s_global=s_global)
+
+
+_ERRORS = frozenset({"mse", "mae", "abs_max"})
+_SGlobal = Optional[Union[Tensor, float]]
+
+
+def block_round_select(
+    x: Tensor,
+    specs: Sequence[BlockFormat],
+    *,
+    error: str = "mse",
+    rounder: Type[Round] = Round,
+    s_global: Union[_SGlobal, Sequence[_SGlobal]] = None,
+) -> Tuple[Tensor, Tensor]:
+    """Round ``x`` with every spec (absmax ``block_round``) and keep, per block, the smallest error.
+
+    Returns ``(y, choice)``. ``choice`` is the ``int64`` index of the winning spec for each
+    block, shaped like the ``return_aux`` scales of ``block_round``. Ties go to the earlier
+    spec: a later one wins only when strictly better. ``error`` is the block ``"mse"``,
+    ``"mae"``, or ``"abs_max"`` of ``y - x``; zero-padded positions do not count.
+    ``s_global`` is ``None``, one value for all specs, or a list / tuple with one entry per
+    spec. All specs must share the block layout (``block_size`` and ``dims``).
+    Gradients are the STE of the selected spec; ``choice`` is not differentiable.
+    """
+    if error not in _ERRORS:
+        raise ValueError(f"error must be one of {sorted(_ERRORS)}, got {error!r}")
+    specs = list(specs)
+    if not specs:
+        raise ValueError("specs must contain at least one BlockFormat")
+    sgs = list(s_global) if isinstance(s_global, (list, tuple)) else [s_global] * len(specs)
+    if len(sgs) != len(specs):
+        raise ValueError(f"s_global has {len(sgs)} entries but there are {len(specs)} specs")
+    layout = _layout_for(tuple(x.shape), specs[0])
+    block_axes = -1 if layout.nd == 1 else (-3, -1)
+    y = best = choice = None
+    for i, (spec, sg) in enumerate(zip(specs, sgs)):
+        if _layout_for(tuple(x.shape), spec) != layout:
+            raise ValueError(
+                f"specs[{i}] has block_size={spec.block_size}, dims={spec.dims}; all specs must share "
+                f"the block layout of specs[0] (block_size={specs[0].block_size}, dims={specs[0].dims})"
+            )
+        y_i = block_round(x, spec, rounder=rounder, s_global=sg)
+        diff = _as_blocks(_pad_work(_permute((y_i - x).detach(), layout), layout), layout)
+        if error == "mse":
+            err = diff.square().sum(dim=block_axes, keepdim=True)
+        elif error == "mae":
+            err = diff.abs().sum(dim=block_axes, keepdim=True)
+        else:
+            err = diff.abs().amax(dim=block_axes, keepdim=True)
+        if i == 0:
+            y, best, choice = y_i, err, torch.zeros(err.shape, dtype=torch.long, device=err.device)
+            continue
+        better = err < best
+        best = torch.where(better, err, best)
+        choice = torch.where(better, torch.full_like(choice, i), choice)
+        y = torch.where(_to_orig(better.expand_as(diff), layout), y_i, y)
+    return y, choice

@@ -160,6 +160,8 @@ y = BlockRound(mxfp8)(x)
 y = BlockRound(nvfp4, rounder=MyRound)(x)
 ```
 
+`block_round_select(x, [spec_a, spec_b], s_global=[g_a, g_b], error="mse")` rounds with every spec and returns `(y, choice)`: per block the spec with the smallest error (`mse`, `mae`, or `abs_max`; the first wins a tie) and its index, as in Four Over Six and IF4.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and pull-request expectations. Short version:
