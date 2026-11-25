@@ -10,7 +10,17 @@ from floating_point.data_types import FloatingPoint
 from floating_point.round import Round
 
 _SCALE_ENCODES = frozenset(
-    {"nearest", "ceil", "ue8m0_ceil", "ue8m0_floor", "ocp_floor", "ocp_floor_x2", "amax_over_M", "signed_peak"}
+    {
+        "nearest",
+        "ceil",
+        "ue8m0_ceil",
+        "ue8m0_floor",
+        "ocp_floor",
+        "ocp_floor_x2",
+        "ocp_floor_carry",
+        "amax_over_M",
+        "signed_peak",
+    }
 )
 _PADS = frozenset({"error", "zero"})
 _TILE_RANK = 2
@@ -133,6 +143,12 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
     if encode == "ocp_floor_x2":
         exp = torch.floor(_log2_clamp(stat, lo)) - (_emax_elem(spec.elem_fp) - 1.0)
         return _pow2_from_unbiased_exp(exp, scale_fp)
+    if encode == "ocp_floor_carry":
+        # ocp_floor, plus one exponent step when the rounded peak carries into the next power of two.
+        elem_fp = spec.elem_fp
+        floor_exp = torch.floor(_log2_clamp(stat, lo))
+        carry = stat / torch.exp2(floor_exp) >= 2.0 - 2.0 ** -(elem_fp.mantissa_bits + (elem_fp.exponent_bits > 0))
+        return _pow2_from_unbiased_exp(floor_exp - _emax_elem(elem_fp) + carry, scale_fp)
     raw = (stat / spec.M).clamp(min=lo, max=hi)
     zero_mask = stat == 0
     if zero_mask.any():

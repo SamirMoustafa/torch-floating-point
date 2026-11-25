@@ -14,6 +14,7 @@
     "ue8m0_floor",
     "ocp_floor",
     "ocp_floor_x2",
+    "ocp_floor_carry",
     "amax_over_M",
     "signed_peak",
   ]);
@@ -404,6 +405,13 @@
     }
     if (encode === "ocp_floor_x2") {
       return pow2_from_unbiased_exp(Math.floor(log2_clamp(stat, lo)) - (emax_elem(elem_fp) - 1), scale_fp);
+    }
+    if (encode === "ocp_floor_carry") {
+      // ocp_floor, plus one exponent step when the rounded peak carries into the next power of two.
+      const floor_exp = Math.floor(log2_clamp(stat, lo));
+      const threshold = 2 - pow2(-(elem_fp.mantissa_bits + (elem_fp.exponent_bits > 0 ? 1 : 0)));
+      const carry = stat / pow2(floor_exp) >= threshold ? 1 : 0;
+      return pow2_from_unbiased_exp(floor_exp - emax_elem(elem_fp) + carry, scale_fp);
     }
     // Torch encode_scale is float32; fround keeps amax/M on that grid.
     let raw = Math.fround(clamp(stat / M, lo, hi));

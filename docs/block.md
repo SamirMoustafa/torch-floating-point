@@ -46,6 +46,7 @@ y = BlockRound(mxfp4, rounder=MyRound)(x)
 | `ue8m0_floor` | \(s = 2^{\lfloor\log_2(\mathrm{amax}/M)\rfloor}\) (floor twin of `ue8m0_ceil`, not OCP §6.3) | same UE8M0 path as `ue8m0_ceil` |
 | `ocp_floor` | \(X = 2^{\lfloor\log_2 a_{\max}\rfloor - e_{\max}}\) | OCP MX v1.0 §6.3 sample ([PDF](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf), [arXiv:2310.10537](https://arxiv.org/abs/2310.10537)) |
 | `ocp_floor_x2` | \(X = 2^{\lfloor\log_2 a_{\max}\rfloor - (e_{\max}-1)}\) | AWS `quantize_mx` ([NKI](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/nki/api/generated/nki.isa.quantize_mx.html)) |
+| `ocp_floor_carry` | \(X = 2^{\lfloor\log_2 a_{\max}\rfloor - e_{\max} + c}\), \(c = 1\) when \(a_{\max} / 2^{\lfloor\log_2 a_{\max}\rfloor} \ge 2 - 2^{-p}\) (the rounded peak carries into the next power of two), else \(0\); \(p\) = `mantissa_bits`, plus one if `exponent_bits > 0` | `scale_mode=3` ("Ceil if necessary") in [microxcaling](https://github.com/iclr2016codeshare/microscaling) |
 | `amax_over_M` | \(s = \mathrm{amax}/M\) clamped to `scale_fp` range (no codebook snap) | Hopper / Qwix / Ironwood software FP32 scales |
 | `signed_peak` | \(s = \mathrm{Round}(\mathrm{peak}/(-M))\) (sign of the max-magnitude value) | KleidiAI Q4_0 / `qsi4c32` |
 

@@ -3670,6 +3670,156 @@
         "reserved_exponent": false,
         "sign_bits": 1
       },
+      "name": "ocp_floor_carry_0.0",
+      "s": 5.877471754111438e-39,
+      "scale": {
+        "bias": 127,
+        "bits": 8,
+        "exponent_bits": 8,
+        "mantissa_bits": 0,
+        "max_mantissa_at_max_exponent": 0,
+        "reserved_exponent": true,
+        "sign_bits": 0
+      },
+      "scale_encode": "ocp_floor_carry",
+      "stat": 0.0
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ocp_floor_carry_5.5",
+      "s": 1.0,
+      "scale": {
+        "bias": 127,
+        "bits": 8,
+        "exponent_bits": 8,
+        "mantissa_bits": 0,
+        "max_mantissa_at_max_exponent": 0,
+        "reserved_exponent": true,
+        "sign_bits": 0
+      },
+      "scale_encode": "ocp_floor_carry",
+      "stat": 5.5
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ocp_floor_carry_6.875",
+      "s": 1.0,
+      "scale": {
+        "bias": 127,
+        "bits": 8,
+        "exponent_bits": 8,
+        "mantissa_bits": 0,
+        "max_mantissa_at_max_exponent": 0,
+        "reserved_exponent": true,
+        "sign_bits": 0
+      },
+      "scale_encode": "ocp_floor_carry",
+      "stat": 6.875
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ocp_floor_carry_7.0",
+      "s": 2.0,
+      "scale": {
+        "bias": 127,
+        "bits": 8,
+        "exponent_bits": 8,
+        "mantissa_bits": 0,
+        "max_mantissa_at_max_exponent": 0,
+        "reserved_exponent": true,
+        "sign_bits": 0
+      },
+      "scale_encode": "ocp_floor_carry",
+      "stat": 7.0
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ocp_floor_carry_7.5",
+      "s": 2.0,
+      "scale": {
+        "bias": 127,
+        "bits": 8,
+        "exponent_bits": 8,
+        "mantissa_bits": 0,
+        "max_mantissa_at_max_exponent": 0,
+        "reserved_exponent": true,
+        "sign_bits": 0
+      },
+      "scale_encode": "ocp_floor_carry",
+      "stat": 7.5
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ocp_floor_carry_8.0",
+      "s": 2.0,
+      "scale": {
+        "bias": 127,
+        "bits": 8,
+        "exponent_bits": 8,
+        "mantissa_bits": 0,
+        "max_mantissa_at_max_exponent": 0,
+        "reserved_exponent": true,
+        "sign_bits": 0
+      },
+      "scale_encode": "ocp_floor_carry",
+      "stat": 8.0
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
       "name": "signed_peak_0.0",
       "s": 0.001953125,
       "scale": {
@@ -4078,6 +4228,7 @@
     "ceil",
     "nearest",
     "ocp_floor",
+    "ocp_floor_carry",
     "ocp_floor_x2",
     "signed_peak",
     "ue8m0_ceil",
