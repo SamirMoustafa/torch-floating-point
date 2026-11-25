@@ -276,7 +276,11 @@
       scaled = 1;
     }
     const mantissa_unrounded = (scaled - 1) * mantissa_scale;
-    const mantissa = round_ties_to_even(mantissa_unrounded);
+    let mantissa = round_ties_to_even(mantissa_unrounded);
+    // M0: both neighbours of a tie are odd (powers of two), so the larger magnitude wins (IEEE 754).
+    if (mantissa_bits === 0 && mantissa_unrounded === 0.5) {
+      mantissa = 1;
+    }
     const at_max_exp = exponent >= max_exp;
     const effective_ub = at_max_exp ? max_mant_at_max + 1 : mantissa_upper_bound;
     let final_exp2 = exp2_val;
