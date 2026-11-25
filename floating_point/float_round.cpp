@@ -89,6 +89,8 @@ torch::Tensor float_round_cpu_inplace(
 
         const float mantissa_unrounded = (scaled - 1.0f) * mantissa_scale;
         int mantissa = round_ties_to_even(mantissa_unrounded);
+        // M0: both neighbours of a tie are odd (powers of two), so the larger magnitude wins (IEEE 754).
+        if (mantissa_bits == 0 && mantissa_unrounded == 0.5f) mantissa = 1;
 
         const bool at_max_exp = exponent >= max_exp;
         const int effective_ub = at_max_exp ? (max_mant_at_max + 1) : mantissa_upper_bound;

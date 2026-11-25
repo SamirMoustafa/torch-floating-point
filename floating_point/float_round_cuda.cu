@@ -53,6 +53,8 @@ __device__ __forceinline__ float float_round_one(
 
     const float mantissa_unrounded = fmaf(scaled - 1.0f, mantissa_scale, 0.0f);
     int mantissa = __float2int_rn(mantissa_unrounded);
+    // M0: both neighbours of a tie are odd (powers of two), so the larger magnitude wins (IEEE 754).
+    if (mantissa_upper_bound == 1 && mantissa_unrounded == 0.5f) mantissa = 1;
 
     const bool at_max_exp = exponent >= max_exp;
     const int effective_ub = at_max_exp ? (max_mant_at_max + 1) : mantissa_upper_bound;

@@ -183,6 +183,7 @@ def build_goldens() -> dict[str, Any]:
         {"name": "e2m1_ties", "fp": dump_fp(e2m1), "x": [0.25, 0.75, -0.25, -0.75, 0.7, 5.0, 6.0]},
         {"name": "e4m3fn_sat", "fp": dump_fp(e4m3fn), "x": [448.0, 449.0, 480.0, 1000.0, -448.0, -480.0]},
         {"name": "e4m3fn_subnormal", "fp": dump_fp(e4m3fn), "x": [0.01, 0.015625, -0.01, -0.015625]},
+        {"name": "ue8m0_ties", "fp": dump_fp(ue8m0), "x": [0.75, 1.25, 1.5, 1.75, 3.0, 6.0]},
     ]
     for case in round_cases:
         fp = make_fp(

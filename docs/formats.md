@@ -67,7 +67,7 @@ cfloat8_e5m2 = FloatingPoint(1, 5, 2, 15, 8, reserved_exponent=False)
 ```
 
 !!! note "Element-wise vs block encode"
-    Element-wise `Round(fp8_e8m0)` is nearest. **Block** UE8M0 scales use a named `scale_encode` (`ue8m0_ceil`, `ue8m0_floor`, `ocp_floor`, …) — see [Block scale](block.md).
+    Element-wise `Round(fp8_e8m0)` is nearest. With no mantissa bits both neighbours of a tie between two powers of two are odd, so the tie goes to the larger magnitude (1.5 → 2, IEEE 754 round-half-to-even); a tie with zero stays at zero. **Block** UE8M0 scales use a named `scale_encode` (`ue8m0_ceil`, `ue8m0_floor`, `ocp_floor`, …) — see [Block scale](block.md).
 
 ## Integer and BFP magnitude
 

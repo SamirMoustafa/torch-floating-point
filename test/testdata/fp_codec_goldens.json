@@ -4181,6 +4181,34 @@
         -0.009765625,
         -0.015625
       ]
+    },
+    {
+      "fp": {
+        "bias": 127,
+        "bits": 8,
+        "exponent_bits": 8,
+        "mantissa_bits": 0,
+        "max_mantissa_at_max_exponent": 0,
+        "reserved_exponent": true,
+        "sign_bits": 0
+      },
+      "name": "ue8m0_ties",
+      "x": [
+        0.75,
+        1.25,
+        1.5,
+        1.75,
+        3.0,
+        6.0
+      ],
+      "y": [
+        1.0,
+        1.0,
+        2.0,
+        2.0,
+        4.0,
+        8.0
+      ]
     }
   ],
   "round_e0": [

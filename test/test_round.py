@@ -190,6 +190,53 @@ class TestZeroMantissaRoundCodebook(unittest.TestCase):
         self.assertEqual(illegal, set(), f"Illegal Round outputs: {sorted(illegal)}")
 
 
+DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
+
+
+class TestZeroMantissaTiesToLargerMagnitude(unittest.TestCase):
+    """Issue #56: both neighbours of an M0 tie are odd, so half-to-even delivers the larger magnitude."""
+
+    e2m0 = FloatingPoint(1, 2, 0, 1, 3, reserved_exponent=False)  # 0, 1, 2, 4
+    e2m1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_issue_example(self, device):
+        # 0.5 ties with zero (even) and stays there.
+        x = torch.tensor([0.5, 1.5, 3.0, -1.5, -3.0], dtype=torch.float32, device=device)
+        self.assertEqual(Round(self.e2m0)(x).cpu().tolist(), [0.0, 2.0, 4.0, -2.0, -4.0])
+
+    @parameterized.expand([
+        (name, fp, x, y, device)
+        for name, fp, x, y in [
+            ("e4m0_reserved", FloatingPoint(1, 4, 0, 7, 5), [0.01171875, -6.0, 96.0], [0.015625, -8.0, 128.0]),
+            ("e3m0", FloatingPoint(1, 3, 0, 3, 4, reserved_exponent=False), [0.375, -1.5, 12.0], [0.5, -2.0, 16.0]),
+            ("e2m0_no_subnormals", FloatingPoint(1, 2, 0, 1, 3, reserved_exponent=False, subnormals=False),
+             [0.75, 1.5, -3.0], [1.0, 2.0, -4.0]),
+            ("ue8m0", FloatingPoint(0, 8, 0, 127, 8), [0.75, 1.5, 3.0], [1.0, 2.0, 4.0])]
+        for device in DEVICES])
+    def test_ties_other_formats(self, name, fp, x, y, device):
+        self.assertEqual(Round(fp)(torch.tensor(x, dtype=torch.float32, device=device)).cpu().tolist(), y)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_next_to_tie_rounds_to_nearer(self, device):
+        ties = torch.tensor([1.5, 3.0, -1.5, -3.0], dtype=torch.float32, device=device)
+        rounder = Round(self.e2m0)
+        self.assertEqual(rounder(torch.nextafter(ties, torch.zeros_like(ties))).cpu().tolist(), [1.0, 2.0, -1.0, -2.0])
+        self.assertEqual(rounder(torch.nextafter(ties, 8 * ties)).cpu().tolist(), [2.0, 4.0, -2.0, -4.0])
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_saturates_at_largest_code(self, device):
+        # 6 would be the tie between 4 and a non-existent 8.
+        x = torch.tensor([4.0, 5.0, 6.0, 7.0, 100.0, -6.0], dtype=torch.float32, device=device)
+        self.assertEqual(Round(self.e2m0)(x).cpu().tolist(), [4.0, 4.0, 4.0, 4.0, 4.0, -4.0])
+        self.assertEqual(Round(FloatingPoint(0, 8, 0, 127, 8))(x[:1] * 2.0**126).cpu().tolist(), [2.0**127])
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_e2m1_ties_unchanged(self, device):
+        x = torch.tensor([1.25, 1.75, 3.5, -1.25, -1.75], dtype=torch.float32, device=device)
+        self.assertEqual(Round(self.e2m1)(x).cpu().tolist(), [1.0, 2.0, 4.0, -1.0, -2.0])
+
+
 class TestRoundNoSubnormals(unittest.TestCase):
     """Issue #40: with subnormals=False, Round lands on the nearest code; there is no subnormal row and no zero."""
 
