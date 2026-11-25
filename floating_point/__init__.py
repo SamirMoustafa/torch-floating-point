@@ -7,7 +7,7 @@ except ImportError:  # pragma: no cover - extension not built yet
     cpp_inplace = None
     cpp_round = None
 
-from .block_round import BlockFormat, BlockRound, block_round, block_round_select, tensor_scale
+from .block_round import BlockFormat, BlockRound, block_round, block_round_search, block_round_select, tensor_scale
 from .round import Round, StraightThroughEstimator
 
 _EXTENSION_MISSING = "floating_point C++ extension is not built; install with pip install -e ."
@@ -40,6 +40,7 @@ __all__ = [
     "FloatingPoint",
     "Round",
     "block_round",
+    "block_round_search",
     "block_round_select",
     "inplace",
     "round",

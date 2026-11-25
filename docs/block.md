@@ -167,3 +167,23 @@ y, choice = block_round_select(x, if4, s_global=[amax / (6 * 448), amax / (1.75 
 - `choice`: `int64` spec index per block, shaped like the `return_aux` scales (`(..., n_blocks, 1)` or `(..., n_h, 1, n_w, 1)`).
 - `s_global`: `None` (each spec's own), one value for all specs, or a list / tuple with one entry per spec.
 - Specs must share `block_size` and `dims`; otherwise `ValueError`. Absmax only (no `scales=`). Gradients are the STE of the selected spec.
+
+## Per-block scale search
+
+`block_round_search` tries several scales per block and keeps the one with the smallest error, before the scale is encoded. FP-Quant ([FP-Quant](https://github.com/IST-DASLab/FP-Quant), `observer="mse"`) searches 100 factors of the abs-max scale with the error exponent 2.4.
+
+```python
+from floating_point import block_round_search, tensor_scale
+
+nvfp4 = BlockFormat(e2m1, e4m3, 16, 6.0, "nearest")
+factors = [1 - i * 0.8 / 100 for i in range(100)]
+g = tensor_scale(x, nvfp4)
+y, scales = block_round_search(x, nvfp4, factors, error=2.4, s_global=g)
+```
+
+- Candidates: `f * amax / M` for each `f` in `factors` (positive, finite), used as they are: not encoded, and not under `s_global`.
+- `error`: `"mse"`, `"mae"`, `"abs_max"` as above, or a positive number `p` for the block sum of `|y - x| ** p`. With `pad="zero"` the padded positions do not count.
+- Ties go to the earlier factor; a later factor wins only when strictly better.
+- The winning scale, divided by `s_global`, is encoded as the spec says (`scale_encode`, `scale_underflow`), and the block is rounded with the encoded scale. The encoding can move the scale, so the error of `y` is not bound to be the smallest one of the search.
+- `scales`: the encoded scale of each block, shaped like the `return_aux` scales. `factors=[1.0]` is `block_round`, up to the float rounding of `amax / M / s_global` against `amax(x / s_global) / M`.
+- `scale_encode` must be one that encodes `amax / M`: `nearest`, `ceil`, `ue8m0_ceil`, `ue8m0_floor`, or `amax_over_M`. `s_global` is one value for the tensor, and `zero_point` must be `0`; otherwise `ValueError`. Gradients are the STE on `x`; the search is detached.

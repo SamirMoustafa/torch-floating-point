@@ -1,6 +1,6 @@
 # API
 
-Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `block_round_select`, `tensor_scale`, `round`, `inplace`.
+Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `block_round_select`, `block_round_search`, `tensor_scale`, `round`, `inplace`.
 
 ## `FloatingPoint`
 
@@ -65,9 +65,12 @@ Call as `rounder(x, scales=None, return_aux=False, s_global=None)`. Reconstruct 
 block_round(x, spec, scales=None, rounder=Round, return_aux=False, s_global=None)
 tensor_scale(x, spec)  # detached amax / (M * scale_fp.maximum)
 y, choice = block_round_select(x, specs, error="mse", rounder=Round, s_global=None)
+y, scales = block_round_search(x, spec, factors, error="mse", rounder=Round, s_global=None)
 ```
 
 `block_round_select` runs absmax `block_round` once per spec and keeps, for each block, the spec with the smallest `error` (`"mse"`, `"mae"`, or `"abs_max"`); the first spec wins a tie. `choice` is the `int64` index of the winner, shaped like the `return_aux` scales. `s_global` is `None`, one value, or a list with one entry per spec. Specs must share `block_size` and `dims`. See [Block scale](block.md#per-block-format-choice).
+
+`block_round_search` tries the scale `f * amax / M` of each block for every `f` in `factors` (not encoded, not under `s_global`) and keeps the first one with the smallest `error`: the three names above, or a positive number `p` for the block sum of `|y - x| ** p`. The winner, divided by `s_global`, is then encoded as `spec` says and the block is rounded with it. `scales` is the encoded scale of each block, shaped like the `return_aux` scales. `scale_encode` must be `nearest`, `ceil`, `ue8m0_ceil`, `ue8m0_floor`, or `amax_over_M`; `s_global` is one value. See [Block scale](block.md#per-block-scale-search).
 
 ## Functional round
 

@@ -11,6 +11,7 @@ from floating_point import (
     FloatingPoint,
     Round,
     block_round,
+    block_round_search,
     block_round_select,
     tensor_scale,
 )
@@ -608,3 +609,128 @@ class TestBlockRoundSelect(unittest.TestCase):
             block_round_select(x, [self.SIX, self.FOUR], s_global=[1.0])
         with self.assertRaisesRegex(ValueError, "at least one"):
             block_round_select(x, [])
+
+
+class TestBlockRoundSearch(unittest.TestCase):
+    """Per-block scale search before the scale is encoded (FP-Quant ``observer="mse"``, issue #53)."""
+
+    SPEC = BlockFormat(E2M1, E4M3, 4, 6.0, "nearest")
+    FACTORS = tuple(1 - i * 0.8 / 100 for i in range(100))  # the candidates of FP-Quant
+
+    @staticmethod
+    def _manual(x, spec, factors, error, g, k):
+        def blocks(t):
+            return t.unflatten(-1, (-1, k))
+
+        def err(y):
+            d = blocks(y - x)
+            if isinstance(error, str):
+                return {"mse": (d**2).sum(-1), "mae": d.abs().sum(-1), "abs_max": d.abs().amax(-1)}[error]
+            return d.abs().pow(error).sum(-1)
+
+        start = blocks(x).abs().amax(-1) / spec.M
+        best = torch.full_like(start, float("inf"))
+        scales = start.clone()
+        for f in factors:
+            e = err(block_round(x, spec, scales=f * start))
+            better = e < best
+            best = torch.where(better, e, best)
+            scales = torch.where(better, f * start, scales)
+        codes = Round(spec.scale_fp)(scales / g)
+        return block_round(x, spec, scales=codes, s_global=g), codes
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_issue_example(self, device):
+        x = torch.tensor([[1.47, -1.45, -1.63, -0.74, 0.61, 0.47, 1.95, -1.06]], device=device)
+        g = tensor_scale(x, self.SPEC)
+        y, scales = block_round_search(x, self.SPEC, self.FACTORS, error=2.4, s_global=g)
+        expected = torch.tensor([[1.5321, -1.5321, -1.5321, -0.7661, 0.65, 0.4875, 1.95, -0.975]], device=device)
+        self.assertTrue(torch.allclose(y, expected, atol=1e-4))
+        self.assertEqual(scales.tolist(), [[[352.0], [448.0]]])
+        _, s, _ = block_round(x, self.SPEC, s_global=g, return_aux=True)
+        self.assertEqual(s.tolist(), [[[384.0], [448.0]]])
+        self.assertEqual(scales.shape, s.shape)
+
+    @parameterized.expand([(d, e) for d in DEVICES for e in (2.4, "mae")])
+    def test_matches_manual_composition(self, device, error):
+        gen = torch.Generator().manual_seed(53)
+        x = torch.randn(16, 64, generator=gen).to(device)
+        g = tensor_scale(x, self.SPEC)
+        y, scales = block_round_search(x, self.SPEC, self.FACTORS, error=error, s_global=g)
+        y_ref, codes_ref = self._manual(x, self.SPEC, self.FACTORS, error, g, 4)
+        self.assertTrue(torch.equal(y, y_ref))
+        self.assertTrue(torch.equal(scales.squeeze(-1), codes_ref))
+        _, s, _ = block_round(x, self.SPEC, s_global=g, return_aux=True)
+        self.assertFalse(torch.equal(scales, s))
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_factor_one_equals_block_round(self, device):
+        gen = torch.Generator().manual_seed(53)
+        x = torch.randn(3, 6, 10, generator=gen).to(device).requires_grad_()
+        spec = BlockFormat(E2M1, E4M3, (4, 4), 6.0, "nearest", pad="zero")
+        g = tensor_scale(x, spec)
+        y, scales = block_round_search(x, spec, [1.0], s_global=g)
+        y_ref, s, _ = block_round(x, spec, s_global=g, return_aux=True)
+        self.assertTrue(torch.equal(y, y_ref))
+        self.assertTrue(torch.equal(scales, s))
+        self.assertFalse(scales.requires_grad)
+        (grad,) = torch.autograd.grad(y.sum(), x)
+        (grad_ref,) = torch.autograd.grad(y_ref.sum(), x)
+        self.assertTrue(torch.equal(grad, grad_ref))
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_tie_keeps_first_factor(self, device):
+        # [6, 3, 0, 0] is exact under the scales 1 and 2: zero error twice, the first factor stays.
+        x = torch.tensor([[6.0, 3.0, 0.0, 0.0]], device=device)
+        for factors, scale in (([1.0, 2.0], 1.0), ([2.0, 1.0], 2.0)):
+            y, scales = block_round_search(x, self.SPEC, factors)
+            self.assertTrue(torch.equal(y, x))
+            self.assertEqual(scales.tolist(), [[[scale]]])
+
+    @parameterized.expand([(d, e) for d in DEVICES for e in ("mse", "abs_max", 2.4)])
+    def test_search_error_not_above_factor_one(self, device, error):
+        # amax_over_M keeps the winning scale as it is, so the guarantee on the candidates holds for y.
+        gen = torch.Generator().manual_seed(53)
+        x = torch.randn(16, 64, generator=gen).to(device)
+        spec = BlockFormat(E4M3, UE8M0, 16, 448.0, "amax_over_M")
+
+        def err(y):
+            d = (y - x).unflatten(-1, (-1, 16))
+            if error == "mse":
+                return (d**2).sum(-1)
+            return d.abs().amax(-1) if error == "abs_max" else d.abs().pow(error).sum(-1)
+
+        y, _ = block_round_search(x, spec, self.FACTORS, error=error)
+        plain = err(block_round(x, spec))
+        self.assertTrue(bool((err(y) <= plain).all()))
+        self.assertTrue(bool((err(y) < plain).any()))
+
+    @parameterized.expand([(d, u) for d in DEVICES for u in ("clamp", "zero")])
+    def test_all_zero_block(self, device, underflow):
+        spec = BlockFormat(E2M1, E4M3, 4, 6.0, "nearest", scale_underflow=underflow)
+        x = torch.tensor([[0.0, 0.0, 0.0, 0.0, 1.0, -2.0, 3.0, 0.5]], device=device, requires_grad=True)
+        y, scales = block_round_search(x, spec, self.FACTORS, error=2.4)
+        _, s, _ = block_round(x, spec, return_aux=True)
+        self.assertTrue(torch.isfinite(y).all())
+        self.assertEqual(y[0, :4].tolist(), [0.0] * 4)
+        self.assertEqual(float(scales[0, 0]), float(s[0, 0]))
+        y.sum().backward()
+        self.assertTrue(torch.equal(x.grad, torch.ones_like(x)))
+
+    def test_bad_arguments_raise(self):
+        x = torch.ones(2, 16)
+        for factors in ([], [1.0, 0.0], [-1.0], [float("inf")], [float("nan")]):
+            with self.assertRaisesRegex(ValueError, "factors must be"):
+                block_round_search(x, self.SPEC, factors)
+        for error in ("l2", 0, -2.0, float("inf"), float("nan"), True, None):
+            with self.assertRaisesRegex(ValueError, "error must be"):
+                block_round_search(x, self.SPEC, [1.0], error=error)
+        for encode in ("ocp_floor", "ocp_floor_x2", "ocp_floor_carry", "signed_peak"):
+            with self.assertRaisesRegex(ValueError, "scale_encode must be"):
+                block_round_search(x, BlockFormat(E2M1, E4M3, 4, 6.0, encode), [1.0])
+        with self.assertRaisesRegex(ValueError, "zero_point"):
+            block_round_search(x, BlockFormat(E2M1, E4M3, 4, 6.0, "nearest", zero_point=1.0), [1.0])
+        with self.assertRaisesRegex(ValueError, "one value"):
+            block_round_search(x, self.SPEC, [1.0], s_global=torch.ones(2, 16))
+        with self.assertRaisesRegex(ValueError, "divisible"):
+            block_round_search(torch.ones(2, 6), self.SPEC, [1.0])
