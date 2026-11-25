@@ -5,7 +5,7 @@ from parameterized import parameterized
 from torch import nn
 
 from floating_point import BlockFormat, BlockRound, FloatingPoint, Round, block_round, tensor_scale
-from floating_point.block_round import encode_scale
+from floating_point.block_round import _SCALE_ENCODES, encode_scale
 
 DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
 
@@ -13,6 +13,7 @@ E2M1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
 E4M3 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
 UE8M0 = FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)
 UE4M3 = FloatingPoint(0, 4, 3, 7, 7, reserved_exponent=False)
+UE2M2 = FloatingPoint(0, 2, 2, 3, 4, reserved_exponent=False, subnormals=False)  # issue #40: no subnormal row
 # Hardware packings as fixtures — not package exports.
 NVFP4 = BlockFormat(E2M1, E4M3, 16, 6.0, "nearest")
 MXFP8 = BlockFormat(E4M3, UE8M0, 32, 448.0, "ue8m0_ceil")
@@ -253,6 +254,30 @@ class TestCeilScaleEncode(unittest.TestCase):
         y, s, _ = block_round(torch.zeros(1, 16, device=device), self.ceil_spec, return_aux=True)
         self.assertEqual(float(s), lo)
         self.assertTrue(torch.equal(y, torch.zeros_like(y)))
+
+
+class TestNoSubnormalScale(unittest.TestCase):
+    """Issue #40: a scale codebook with subnormals=False (exponent code 0 is a normal binade, no zero code)."""
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_scales_are_codes_and_zero_block_stays_zero(self, device):
+        codes = set(UE2M2.values)
+        x = torch.randn(64, 16, device=device) * torch.logspace(-3, 1, 64, device=device).unsqueeze(1)
+        x[0] = 0.0
+        for encode in sorted(_SCALE_ENCODES):
+            y, s, _ = block_round(x, BlockFormat(E2M1, UE2M2, 16, 6.0, encode), return_aux=True)
+            self.assertTrue(torch.equal(y[0], torch.zeros_like(y[0])), msg=encode)
+            if encode != "amax_over_M":  # no codebook snap
+                self.assertLessEqual({float(v) for v in s.flatten()}, codes, msg=encode)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_nearest_reaches_bottom_binade(self, device):
+        # 0.15625 = 1.25 * 2^-3 is a code only without the subnormal row.
+        x = torch.zeros(1, 16, device=device)
+        x[0, 0] = 6.0 * 0.15625
+        y, s, _ = block_round(x, BlockFormat(E2M1, UE2M2, 16, 6.0, "nearest"), return_aux=True)
+        self.assertEqual(float(s), 0.15625)
+        self.assertEqual(float(y[0, 0]), 6.0 * 0.15625)
 
 
 class TestTwoD(unittest.TestCase):

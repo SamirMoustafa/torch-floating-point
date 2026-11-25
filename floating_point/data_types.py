@@ -13,14 +13,18 @@ class FloatingPoint:
         bits: int,
         max_mantissa_at_max_exponent: Optional[int] = None,
         reserved_exponent: bool = True,
+        subnormals: bool = True,
     ):
         assert bits > 0 and bits == sign_bits + exponent_bits + mantissa_bits and 0 <= sign_bits <= 1
+        assert subnormals or exponent_bits > 0, "subnormals=False needs exponent bits"
         self.bits = bits
         self.sign_bits = sign_bits
         self.exponent_bits = exponent_bits
         self.mantissa_bits = mantissa_bits
         self.bias = bias
         self.reserved_exponent = reserved_exponent
+        # False: exponent code 0 is a normal binade (1 + m/2^M) * 2^(-bias); no subnormal row, no zero code.
+        self.subnormals = subnormals
         self.max_mantissa_at_max_exponent = max_mantissa_at_max_exponent or 2**mantissa_bits - 1
 
     @property
@@ -35,8 +39,8 @@ class FloatingPoint:
     def minimum(self) -> float:
         if self.is_signed:
             return -self.maximum
-        # UE8M0-style unsigned scales: no zero code; smallest is 2^(-bias).
-        if self.mantissa_bits == 0 and self.reserved_exponent:
+        # UE8M0-style unsigned scales and subnormals=False: no zero code; smallest is 2^(-bias).
+        if not self.subnormals or (self.mantissa_bits == 0 and self.reserved_exponent):
             return float(2 ** (-self.bias))
         return 0.0
 
@@ -74,7 +78,7 @@ class FloatingPoint:
         if self.mantissa_bits == 0:
             if self.reserved_exponent and exponent == max_exponent:
                 return math.nan
-            if exponent == 0 and not self.reserved_exponent:
+            if exponent == 0 and not self.reserved_exponent and self.subnormals:
                 return sign_factor * 0.0
             return float(sign_factor * (2 ** (exponent - self.bias)))
 
@@ -85,7 +89,7 @@ class FloatingPoint:
         if not self.reserved_exponent and exponent == max_exponent and mantissa > self.max_mantissa_at_max_exponent:
             return math.nan
 
-        if exponent == 0:
+        if exponent == 0 and self.subnormals:
             if mantissa == 0:
                 return sign_factor * 0.0
             mantissa_value = mantissa / (2**self.mantissa_bits)
@@ -118,4 +122,5 @@ class FloatingPoint:
             f"B{self.bias}"
             f"MaxM{self.max_mantissa_at_max_exponent}"
             f"{'R' if self.reserved_exponent else ''}"
+            f"{'' if self.subnormals else 'NoSub'}"
         )

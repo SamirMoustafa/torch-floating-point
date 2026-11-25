@@ -190,6 +190,40 @@ class TestZeroMantissaRoundCodebook(unittest.TestCase):
         self.assertEqual(illegal, set(), f"Illegal Round outputs: {sorted(illegal)}")
 
 
+class TestRoundNoSubnormals(unittest.TestCase):
+    """Issue #40: with subnormals=False, Round lands on the nearest code; there is no subnormal row and no zero."""
+
+    ue2m2 = FloatingPoint(0, 2, 2, 3, 4, reserved_exponent=False, subnormals=False)
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else []))
+    def test_issue_example(self, device):
+        # Zero and negatives clamp to the smallest code, like UE8M0; 0.140625 and 0.171875 are ties (to even).
+        x = torch.tensor(
+            [0.0, -1.0, 0.01, 0.140625, 0.15, 0.171875, 0.22, 1.7, 9.0], dtype=torch.float32, device=device)
+        y = Round(self.ue2m2)(x).cpu().tolist()
+        self.assertEqual(y, [0.125, 0.125, 0.125, 0.125, 0.15625, 0.1875, 0.21875, 1.75, 1.75])
+
+    @parameterized.expand([
+        (name, fp, device)
+        for name, fp in [
+            ("ue2m2", ue2m2),
+            ("e2m2_reserved", FloatingPoint(1, 2, 2, 1, 5, subnormals=False)),
+            ("ue2m0", FloatingPoint(0, 2, 0, 3, 2, reserved_exponent=False, subnormals=False))]
+        for device in ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])])
+    def test_round_is_nearest_code(self, name, fp, device):
+        codes = torch.tensor(sorted(v for v in fp.values if math.isfinite(v)), dtype=torch.float64)
+        x = torch.linspace(-2 * fp.maximum, 2 * fp.maximum, 16000, dtype=torch.float32, device=device)
+        x = torch.cat([x, ((codes[:-1] + codes[1:]) / 2).to(x)])  # every midpoint as well
+        if fp.is_signed:
+            x = x[x != 0]  # no zero code: a signed format passes exact zero through
+        y = Round(fp)(x).cpu().double()
+        x = x.cpu().double()
+        nearest = (codes - x.unsqueeze(1)).abs().min(dim=1).values
+        self.assertTrue(torch.isin(y, codes).all(), "Round left the codebook")
+        self.assertTrue(torch.equal((y - x).abs(), nearest), "Round is not the nearest code")
+
+
 class TestRoundPropagatesNaN(unittest.TestCase):
     """Issue #26: Round must not map NaN to ±2^max_exp."""
 

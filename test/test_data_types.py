@@ -94,6 +94,33 @@ class TestNvidiaCodecGoldens(unittest.TestCase):
         self.assertEqual(self.e8m0.minimum, 2**-127)
 
 
+UE2M2_VALUES = [
+    0.0, 0.0625, 0.125, 0.1875, 0.25, 0.3125, 0.375, 0.4375, 0.5, 0.625, 0.75, 0.875, 1.0, 1.25, 1.5, 1.75]
+UE2M2_NO_SUBNORMAL_VALUES = [
+    0.125, 0.15625, 0.1875, 0.21875, 0.25, 0.3125, 0.375, 0.4375, 0.5, 0.625, 0.75, 0.875, 1.0, 1.25, 1.5, 1.75]
+
+
+class TestNoSubnormals(unittest.TestCase):
+    """Issue #40: subnormals=False decodes exponent code 0 as a normal binade (no subnormal row, no zero code)."""
+
+    def test_issue_example(self):
+        default = FloatingPoint(0, 2, 2, 3, 4, reserved_exponent=False)
+        self.assertEqual(default.values, UE2M2_VALUES)
+        self.assertEqual((default.minimum, repr(default)), (0.0, "Float4-S0E2M2B3MaxM3"))
+        ue2m2 = FloatingPoint(0, 2, 2, 3, 4, reserved_exponent=False, subnormals=False)
+        self.assertEqual(ue2m2.values, UE2M2_NO_SUBNORMAL_VALUES)
+        self.assertEqual((ue2m2.minimum, ue2m2.maximum), (0.125, 1.75))
+
+    def test_reserved_exponent_and_zero_mantissa(self):
+        # reserved_exponent still takes the top exponent code; every code below it is normal.
+        e2m1 = FloatingPoint(1, 2, 1, 1, 4, subnormals=False)
+        self.assertEqual(sorted({abs(v) for v in e2m1.values if math.isfinite(v)}), [0.5, 0.75, 1.0, 1.5, 2.0, 3.0])
+        ue2m0 = FloatingPoint(0, 2, 0, 3, 2, reserved_exponent=False, subnormals=False)
+        self.assertEqual(ue2m0.values, [0.125, 0.25, 0.5, 1.0])
+        with self.assertRaises(AssertionError):
+            FloatingPoint(1, 0, 7, 0, 8, subnormals=False)  # no exponent field
+
+
 def generate_all_torch_fp16_values(dtype):
     uint16_tensor = arange(0, 2**16).to(dtype=uint16)
     float16_values = uint16_tensor.view(dtype)

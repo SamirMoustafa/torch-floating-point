@@ -25,6 +25,7 @@ class StraightThroughEstimator(Function):
             dtype.bias,
             int(dtype.reserved_exponent),
             dtype.max_mantissa_at_max_exponent,
+            int(dtype.subnormals),
         )
         return rounded
 
