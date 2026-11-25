@@ -23,6 +23,7 @@ _SCALE_ENCODES = frozenset(
     }
 )
 _PADS = frozenset({"error", "zero"})
+_SCALE_UNDERFLOWS = frozenset({"clamp", "zero"})
 _TILE_RANK = 2
 _BlockSize = Union[int, Tuple[int, int]]
 
@@ -40,12 +41,22 @@ class BlockFormat:
     s_global: float = 1.0
     zero_point: float = 0.0
     pad: str = "error"
+    scale_underflow: str = "clamp"
 
     def __post_init__(self) -> None:
         if self.scale_encode not in _SCALE_ENCODES:
             raise ValueError(f"scale_encode must be one of {sorted(_SCALE_ENCODES)}, got {self.scale_encode!r}")
         if self.pad not in _PADS:
             raise ValueError(f"pad must be one of {sorted(_PADS)}, got {self.pad!r}")
+        if self.scale_underflow not in _SCALE_UNDERFLOWS:
+            raise ValueError(
+                f"scale_underflow must be one of {sorted(_SCALE_UNDERFLOWS)}, got {self.scale_underflow!r}"
+            )
+        if self.scale_underflow == "zero":
+            if self.scale_encode != "nearest":
+                raise ValueError(f'scale_underflow="zero" requires scale_encode="nearest", got {self.scale_encode!r}')
+            if 0.0 not in self.scale_fp.values:
+                raise ValueError('scale_underflow="zero" requires a scale_fp with a zero code')
         if not math.isfinite(self.s_global) or self.s_global == 0.0:
             raise ValueError(f"s_global must be finite and non-zero, got {self.s_global}")
         if not math.isfinite(self.zero_point):
@@ -128,6 +139,9 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
     ``stat`` is block absmax for every policy except ``signed_peak``, which takes the
     signed value of maximum magnitude. OCP / AWS policies use ``stat`` directly;
     ``nearest``, ``ceil``, ``amax_over_M``, and the UE8M0 policies use ``stat / M``.
+
+    Every policy returns a non-zero scale, except ``nearest`` with ``spec.scale_underflow="zero"``:
+    there ``stat / M`` at or below half the smallest positive code rounds to the zero code.
     """
     scale_fp = spec.scale_fp
     lo, hi = _scale_bounds(scale_fp)
@@ -149,6 +163,8 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
         floor_exp = torch.floor(_log2_clamp(stat, lo))
         carry = stat / torch.exp2(floor_exp) >= 2.0 - 2.0 ** -(elem_fp.mantissa_bits + (elem_fp.exponent_bits > 0))
         return _pow2_from_unbiased_exp(floor_exp - _emax_elem(elem_fp) + carry, scale_fp)
+    if spec.scale_underflow == "zero":  # nearest only: no clamp up to ``lo``, the kernel may return the zero code
+        return Round(scale_fp)(stat / spec.M)
     raw = (stat / spec.M).clamp(min=lo, max=hi)
     zero_mask = stat == 0
     if zero_mask.any():
@@ -374,6 +390,8 @@ def block_round(
 
     Absmax (``scales is None``): ``s = encode_scale(stat).detach()`` — STE on ``x`` only.
     Learnable (``scales`` given): gradients into ``scales`` via ``(e - z) * s``.
+    ``spec.scale_underflow="zero"`` (absmax only): a block whose scale rounds to zero has ``s = 0``,
+    ``e = 0`` and ``y = +0``, with the identity straight-through gradient on ``x``.
     """
     if spec.M <= 0:
         raise ValueError(f"M must be positive, got {spec.M}")
@@ -397,7 +415,12 @@ def block_round(
         if s.device != blocks.device or s.dtype != blocks.dtype:
             s = s.to(device=blocks.device, dtype=blocks.dtype)
     denom = s * sg
+    flushed = (s == 0) if scales is None and spec.scale_underflow == "zero" else None
+    if flushed is not None:
+        denom = torch.where(flushed, torch.ones_like(denom), denom)
     elems = elem_rounder(blocks / denom + z)
+    if flushed is not None:
+        elems = torch.where(flushed, blocks - blocks.detach(), elems)
     y_blocks = (elems - z) * denom
     y = _to_orig(y_blocks, layout)
     if return_aux:
