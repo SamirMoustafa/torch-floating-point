@@ -12,7 +12,8 @@ torch::Tensor float_round_cuda_inplace(
     int mantissa_bits,
     int bias,
     int reserved_exponent,
-    int max_mantissa_at_max_exponent);
+    int max_mantissa_at_max_exponent,
+    int subnormals);
 #endif
 
 // Macro to check if the tensor is contiguous
@@ -33,7 +34,8 @@ torch::Tensor float_round_cpu_inplace(
     int mantissa_bits,
     int bias,
     int reserved_exponent,
-    int max_mantissa_at_max_exponent) {
+    int max_mantissa_at_max_exponent,
+    int subnormals) {
     int numel = input.numel();
     if (numel == 0) return input;
 
@@ -43,7 +45,8 @@ torch::Tensor float_round_cpu_inplace(
     // Normals start at unbiased exponent (1 - bias); [-bias, 1-bias) is subnormal.
     // Reserved pure exponent formats (UE8M0) have no subnormals; exp 0 encodes 2^(-bias).
     // Without a reserved exponent, M0 exp 0 encodes zero and rounds through the subnormal path.
-    const bool has_subnormals = mantissa_bits > 0 || !reserved_exponent;
+    // subnormals=0: exp 0 is always the normal binade [2^(-bias), 2^(1-bias)).
+    const bool has_subnormals = subnormals && (mantissa_bits > 0 || !reserved_exponent);
     float min_normal_exp = has_subnormals ? static_cast<float>(1 - bias) : static_cast<float>(-bias);
     float subnormal_scale = std::exp2(static_cast<float>(1 - bias));
     int mantissa_upper_bound = 1 << mantissa_bits;
@@ -118,20 +121,21 @@ torch::Tensor float_round_inplace(
     int mantissa_bits,
     int bias,
     int reserved_exponent,
-    int max_mantissa_at_max_exponent) {
+    int max_mantissa_at_max_exponent,
+    int subnormals) {
     TORCH_CHECK(input.is_contiguous(), "Input tensor must be contiguous");
     TORCH_CHECK(input.scalar_type() == torch::kFloat32, "Input tensor must be float32");
 
     if (input.device().is_cuda()) {
         #ifdef WITH_CUDA
         return float_round_cuda_inplace(
-            input, exponent_bits, mantissa_bits, bias, reserved_exponent, max_mantissa_at_max_exponent);
+            input, exponent_bits, mantissa_bits, bias, reserved_exponent, max_mantissa_at_max_exponent, subnormals);
         #else
         TORCH_CHECK(false, "CUDA support not available");
         #endif
     } else {
         return float_round_cpu_inplace(
-            input, exponent_bits, mantissa_bits, bias, reserved_exponent, max_mantissa_at_max_exponent);
+            input, exponent_bits, mantissa_bits, bias, reserved_exponent, max_mantissa_at_max_exponent, subnormals);
     }
 }
 
@@ -142,9 +146,10 @@ torch::Tensor float_round(
     int mantissa_bits,
     int bias,
     int reserved_exponent,
-    int max_mantissa_at_max_exponent) {
+    int max_mantissa_at_max_exponent,
+    int subnormals) {
     return float_round_inplace(
-        input.clone(), exponent_bits, mantissa_bits, bias, reserved_exponent, max_mantissa_at_max_exponent);
+        input.clone(), exponent_bits, mantissa_bits, bias, reserved_exponent, max_mantissa_at_max_exponent, subnormals);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -157,7 +162,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         py::arg("mantissa_bits"),
         py::arg("bias"),
         py::arg("reserved_exponent"),
-        py::arg("max_mantissa_at_max_exponent"));
+        py::arg("max_mantissa_at_max_exponent"),
+        py::arg("subnormals") = 1);
     m.def(
         "round",
         &float_round,
@@ -167,5 +173,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         py::arg("mantissa_bits"),
         py::arg("bias"),
         py::arg("reserved_exponent"),
-        py::arg("max_mantissa_at_max_exponent"));
+        py::arg("max_mantissa_at_max_exponent"),
+        py::arg("subnormals") = 1);
 }

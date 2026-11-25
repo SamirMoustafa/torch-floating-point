@@ -13,10 +13,11 @@ FloatingPoint(
     bits: int,
     max_mantissa_at_max_exponent: int | None = None,
     reserved_exponent: bool = True,
+    subnormals: bool = True,
 )
 ```
 
-Requires `bits == sign_bits + exponent_bits + mantissa_bits` and `sign_bits` in `{0, 1}`.
+Requires `bits == sign_bits + exponent_bits + mantissa_bits` and `sign_bits` in `{0, 1}`. `subnormals=False` (needs `exponent_bits > 0`) decodes exponent code 0 as a normal binade, `(1 + m / 2**mantissa_bits) * 2**(-bias)`: no subnormal row and no zero code.
 
 | Attr | Meaning |
 | --- | --- |

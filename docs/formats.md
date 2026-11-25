@@ -13,6 +13,7 @@ fp = FloatingPoint(
     bits=8,  # must equal S + E + M
     max_mantissa_at_max_exponent=None,  # default: 2^M - 1
     reserved_exponent=True,  # max exponent → Inf/NaN
+    subnormals=True,  # exponent code 0 → subnormal row with zero
 )
 y = Round(fp)(x)
 ```
@@ -24,6 +25,7 @@ y = Round(fp)(x)
 | `bias` | Stored exponent minus bias is the true power of two |
 | `reserved_exponent` | If true, all-ones exponent is Inf/NaN (or NaN-only for M = 0) |
 | `max_mantissa_at_max_exponent` | Finite cap at the top exponent (E4M3-FN uses `6`) |
+| `subnormals` | If false, exponent code 0 is one more normal binade \((1 + m/2^{M})\,2^{-\mathrm{bias}}\): no subnormal row and no zero code. Meant for unsigned block scales: `Round` clamps anything below the smallest code to it, as for UE8M0 |
 
 `fp.minimum`, `fp.maximum`, and `fp.values` expose the numeric range and the full codebook.
 
