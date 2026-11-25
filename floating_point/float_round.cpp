@@ -41,8 +41,10 @@ torch::Tensor float_round_cpu_inplace(
     int max_stored_exp = reserved_exponent ? ((1 << exponent_bits) - 2) : ((1 << exponent_bits) - 1);
     float max_exp = static_cast<float>(max_stored_exp - bias);
     // Normals start at unbiased exponent (1 - bias); [-bias, 1-bias) is subnormal.
-    // Pure exponent formats (M0) have no subnormals; exp 0 encodes 2^(-bias).
-    float min_normal_exp = (mantissa_bits == 0) ? static_cast<float>(-bias) : static_cast<float>(1 - bias);
+    // Reserved pure exponent formats (UE8M0) have no subnormals; exp 0 encodes 2^(-bias).
+    // Without a reserved exponent, M0 exp 0 encodes zero and rounds through the subnormal path.
+    const bool has_subnormals = mantissa_bits > 0 || !reserved_exponent;
+    float min_normal_exp = has_subnormals ? static_cast<float>(1 - bias) : static_cast<float>(-bias);
     float subnormal_scale = std::exp2(static_cast<float>(1 - bias));
     int mantissa_upper_bound = 1 << mantissa_bits;
     int max_mant_at_max = max_mantissa_at_max_exponent;
@@ -61,7 +63,7 @@ torch::Tensor float_round_cpu_inplace(
         const float x_abs = std::fabs(x_val);
         const float exponent_floor = std::floor(std::log2(x_abs));
 
-        if (mantissa_bits > 0 && exponent_floor < min_normal_exp) {
+        if (has_subnormals && exponent_floor < min_normal_exp) {
             // Subnormal: value = (mant / 2^m) * 2^(1-bias)
             const float mant_unrounded = (x_abs / subnormal_scale) * mantissa_scale;
             int mant = round_ties_to_even(mant_unrounded);

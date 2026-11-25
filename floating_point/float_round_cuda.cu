@@ -183,13 +183,14 @@ torch::Tensor float_round_cuda_inplace(
 
     int max_stored_exp = reserved_exponent ? ((1 << exponent_bits) - 2) : ((1 << exponent_bits) - 1);
     float max_exp = static_cast<float>(max_stored_exp - bias);
-    float min_normal_exp = (mantissa_bits == 0) ? static_cast<float>(-bias) : static_cast<float>(1 - bias);
+    // M0 without a reserved exponent: exp 0 encodes zero and rounds through the subnormal path.
+    int has_subnormals = (mantissa_bits > 0 || !reserved_exponent) ? 1 : 0;
+    float min_normal_exp = has_subnormals ? static_cast<float>(1 - bias) : static_cast<float>(-bias);
     float subnormal_scale = exp2f(static_cast<float>(1 - bias));
     int mantissa_upper_bound = 1 << mantissa_bits;
     int max_mant_at_max = max_mantissa_at_max_exponent;
     float mantissa_scale = static_cast<float>(mantissa_upper_bound > 0 ? mantissa_upper_bound : 1);
     float inv_mantissa_scale = 1.0f / mantissa_scale;
-    int has_subnormals = mantissa_bits > 0 ? 1 : 0;
 
     float* input_ptr = input.data_ptr<float>();
 

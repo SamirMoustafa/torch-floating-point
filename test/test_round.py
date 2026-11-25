@@ -155,6 +155,41 @@ class TestE4M3FNSubnormalCodebook(unittest.TestCase):
         self.assertNotIn(0.0087890625, unique)
 
 
+class TestZeroMantissaRoundCodebook(unittest.TestCase):
+    """Issue #41: without a reserved exponent, M0 exponent code 0 is zero, not 2^-bias."""
+
+    e2m0 = FloatingPoint(1, 2, 0, 1, 3, reserved_exponent=False)
+    e3m0 = FloatingPoint(1, 3, 0, 3, 4, reserved_exponent=False)
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else []))
+    def test_below_smallest_nonzero_rounds_to_nearest(self, device):
+        y = Round(self.e2m0)(torch.tensor([0.1, 0.3, 0.45, 0.6], dtype=torch.float32, device=device))
+        self.assertEqual(y.cpu().tolist(), [0.0, 0.0, 0.0, 1.0])
+        y = Round(self.e3m0)(torch.tensor([0.01, 0.07, 0.1], dtype=torch.float32, device=device))
+        self.assertEqual(y.cpu().tolist(), [0.0, 0.0, 0.0])
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else []))
+    def test_midpoint_ties_to_even(self, device):
+        # 2^-bias is halfway between exponent code 0 (zero) and code 1 (2^(1-bias)) → 0
+        y = Round(self.e2m0)(torch.tensor([0.5, -0.5], dtype=torch.float32, device=device))
+        self.assertEqual(y.cpu().tolist(), [0.0, -0.0])
+        y = Round(self.e3m0)(torch.tensor([0.125, -0.125], dtype=torch.float32, device=device))
+        self.assertEqual(y.cpu().tolist(), [0.0, -0.0])
+
+    @parameterized.expand(
+        [("cpu",)] + ([("cuda",)] if torch.cuda.is_available() else []))
+    def test_dense_outputs_in_codebook(self, device):
+        rounder = Round(self.e3m0)
+        codebook = set(self.e3m0.values)
+        x = torch.linspace(-17.0, 17.0, 34001, dtype=torch.float32, device=device)
+        y = rounder(x).cpu()
+        unique = {float(v) for v in y.unique()}
+        illegal = unique - codebook
+        self.assertEqual(illegal, set(), f"Illegal Round outputs: {sorted(illegal)}")
+
+
 class TestRoundPropagatesNaN(unittest.TestCase):
     """Issue #26: Round must not map NaN to ±2^max_exp."""
 
