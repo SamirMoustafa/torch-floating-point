@@ -281,6 +281,98 @@ class TestNoSubnormalScale(unittest.TestCase):
         self.assertEqual(float(y[0, 0]), 6.0 * 0.15625)
 
 
+class TestScaleUnderflowZero(unittest.TestCase):
+    """Issue #49: ``scale_underflow="zero"`` flushes a block whose ``nearest`` scale rounds to zero."""
+
+    lo = min(v for v in UE4M3.values if v > 0)  # 2**-9
+
+    @staticmethod
+    def spec(mode, m=6.0, k=4, **kw):
+        return BlockFormat(E2M1, UE4M3, k, m, "nearest", scale_underflow=mode, **kw)
+
+    @staticmethod
+    def blocks(device):
+        # amax / M from far below half the smallest scale code to above the largest code
+        g = torch.Generator().manual_seed(0)
+        mag = torch.exp2(torch.randint(-16, 12, (256, 1), generator=g).float())
+        return (torch.randn(256, 64, generator=g) * mag).to(device)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_issue_example(self, device):
+        x = torch.tensor([[1e-3, 5e-4, -2e-4, 1e-4, 3.0, 1.0, -0.5, 0.25]], device=device)
+        y, s, _ = block_round(x, self.spec("clamp"), return_aux=True)
+        self.assertEqual(s.flatten().tolist(), [self.lo, 0.5])
+        self.assertEqual(y.tolist(), [[self.lo / 2, self.lo / 2, -0.0, 0.0, 3.0, 1.0, -0.5, 0.25]])
+        y, s, e = block_round(x, self.spec("zero"), return_aux=True)
+        self.assertEqual(s.flatten().tolist(), [0.0, 0.5])
+        self.assertEqual(y.tolist(), [[0.0, 0.0, 0.0, 0.0, 3.0, 1.0, -0.5, 0.25]])
+        self.assertEqual(e.tolist(), [[0.0, 0.0, 0.0, 0.0, 6.0, 2.0, -1.0, 0.5]])
+        self.assertFalse(torch.signbit(y[0, :4]).any())  # flushed elements are +0
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_default_is_clamp(self, device):
+        x = self.blocks(device)
+        default = BlockFormat(E2M1, UE4M3, 16, 6.0, "nearest")
+        self.assertEqual(default, self.spec("clamp", k=16))
+        for a, b in zip(
+            block_round(x, default, return_aux=True), block_round(x, self.spec("clamp", k=16), return_aux=True)
+        ):
+            self.assertTrue(torch.equal(a, b))
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_threshold_is_half_smallest_code_ties_to_zero(self, device):
+        # M = 4 keeps amax / M exact on every device; the threshold is amax / M = lo / 2.
+        half = 4.0 * self.lo / 2
+        x = torch.zeros(3, 4, device=device)
+        x[:, 0] = torch.tensor([half * (1 - 2.0**-20), half, half * (1 + 2.0**-20)])
+        y, s, _ = block_round(x, self.spec("zero", m=4.0), return_aux=True)
+        self.assertEqual(s.flatten().tolist(), [0.0, 0.0, self.lo])  # the tie rounds to the even (zero) code
+        self.assertEqual(y[:, 0].tolist(), [0.0, 0.0, 2 * self.lo])  # x / s = 2 is an E2M1 code
+        _, s, _ = block_round(x, self.spec("clamp", m=4.0), return_aux=True)
+        self.assertEqual(s.flatten().tolist(), [self.lo] * 3)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_only_underflowing_blocks_differ(self, device):
+        x = self.blocks(device)
+        x[0] = 0.0
+        y_c, s_c, e_c = block_round(x, self.spec("clamp", k=16), return_aux=True)
+        y_z, s_z, e_z = block_round(x, self.spec("zero", k=16), return_aux=True)
+        flushed = s_z == 0
+        self.assertTrue(flushed[0].all())  # all-zero block
+        self.assertTrue(flushed[1:].any() and not flushed.all())
+        peaks = x.reshape(256, -1, 16).abs().amax(-1, keepdim=True)
+        self.assertTrue(torch.equal(flushed, peaks / 6.0 <= self.lo / 2))
+        self.assertTrue(torch.equal(torch.where(flushed, s_c, s_z), s_c))
+        keep = ~flushed.expand(-1, -1, 16).reshape_as(x)
+        self.assertTrue(torch.equal(y_z[keep], y_c[keep]))
+        self.assertTrue(torch.equal(e_z[keep], e_c[keep]))
+        self.assertTrue(torch.equal(y_z[~keep], torch.zeros_like(y_z[~keep])))
+        self.assertTrue(torch.equal(e_z[~keep], torch.zeros_like(e_z[~keep])))
+        self.assertTrue(torch.isfinite(y_z).all() and torch.isfinite(s_z).all() and torch.isfinite(e_z).all())
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_s_global_and_ste_grad(self, device):
+        # The test is on (amax / s_global) / M: the same data flushes or not depending on s_global.
+        x = torch.tensor([[1e-3, 5e-4, -2e-4, 1e-4]], device=device, requires_grad=True)
+        y, s, _ = block_round(x, self.spec("zero", s_global=2.0**-10), return_aux=True)
+        self.assertGreater(float(s), 0.0)
+        self.assertTrue((y != 0).any())
+        y, s, _ = block_round(x, self.spec("zero"), return_aux=True, s_global=1.0)
+        self.assertEqual(float(s), 0.0)
+        self.assertTrue(torch.equal(y, torch.zeros_like(y)))
+        y.sum().backward()
+        self.assertTrue(torch.equal(x.grad, torch.ones_like(x)))  # identity STE, as for any element rounding to 0
+
+    def test_invalid_combinations_raise(self):
+        with self.assertRaises(ValueError):
+            self.spec("flush")
+        with self.assertRaises(ValueError):  # only defined for round-to-nearest
+            BlockFormat(E2M1, UE4M3, 16, 6.0, "ceil", scale_underflow="zero")
+        for no_zero_code in (UE8M0, UE2M2):
+            with self.assertRaises(ValueError):
+                BlockFormat(E2M1, no_zero_code, 16, 6.0, "nearest", scale_underflow="zero")
+
+
 class TestOcpFloorCarryScaleEncode(unittest.TestCase):
     """Issue #45: ``ocp_floor`` plus one exponent step only when the rounded peak carries."""
 
