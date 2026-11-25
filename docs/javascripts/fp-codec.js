@@ -9,6 +9,7 @@
   // Same strings and order as _SCALE_ENCODES in floating_point/block_round.py.
   const SCALE_ENCODES = Object.freeze([
     "nearest",
+    "ceil",
     "ue8m0_ceil",
     "ue8m0_floor",
     "ocp_floor",
@@ -421,6 +422,19 @@
     if (encode === "nearest") {
       const rounded = round_scalar(Math.abs(raw), scale_fp);
       return clamp(Math.abs(rounded), lo, hi);
+    }
+    if (encode === "ceil") {
+      // Smallest positive code >= raw; raw is already clamped to [lo, hi].
+      if (Number.isNaN(raw)) {
+        return raw;
+      }
+      const codes = scale_fp.finite_values();
+      for (let i = 0; i < codes.length; i++) {
+        if (codes[i] >= raw) {
+          return codes[i];
+        }
+      }
+      return hi;
     }
     throw new Error(`unknown scale_encode ${encode}`);
   }

@@ -3545,6 +3545,131 @@
         "reserved_exponent": false,
         "sign_bits": 1
       },
+      "name": "ceil_0.0",
+      "s": 0.001953125,
+      "scale": {
+        "bias": 7,
+        "bits": 8,
+        "exponent_bits": 4,
+        "mantissa_bits": 3,
+        "max_mantissa_at_max_exponent": 6,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "scale_encode": "ceil",
+      "stat": 0.0
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ceil_5.75",
+      "s": 1.0,
+      "scale": {
+        "bias": 7,
+        "bits": 8,
+        "exponent_bits": 4,
+        "mantissa_bits": 3,
+        "max_mantissa_at_max_exponent": 6,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "scale_encode": "ceil",
+      "stat": 5.75
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ceil_6.0",
+      "s": 1.0,
+      "scale": {
+        "bias": 7,
+        "bits": 8,
+        "exponent_bits": 4,
+        "mantissa_bits": 3,
+        "max_mantissa_at_max_exponent": 6,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "scale_encode": "ceil",
+      "stat": 6.0
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ceil_12.0",
+      "s": 2.0,
+      "scale": {
+        "bias": 7,
+        "bits": 8,
+        "exponent_bits": 4,
+        "mantissa_bits": 3,
+        "max_mantissa_at_max_exponent": 6,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "scale_encode": "ceil",
+      "stat": 12.0
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "name": "ceil_4096.0",
+      "s": 448.0,
+      "scale": {
+        "bias": 7,
+        "bits": 8,
+        "exponent_bits": 4,
+        "mantissa_bits": 3,
+        "max_mantissa_at_max_exponent": 6,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
+      "scale_encode": "ceil",
+      "stat": 4096.0
+    },
+    {
+      "M": 6.0,
+      "elem": {
+        "bias": 1,
+        "bits": 4,
+        "exponent_bits": 2,
+        "mantissa_bits": 1,
+        "max_mantissa_at_max_exponent": 1,
+        "reserved_exponent": false,
+        "sign_bits": 1
+      },
       "name": "signed_peak_0.0",
       "s": 0.001953125,
       "scale": {
@@ -3950,6 +4075,7 @@
   ],
   "scale_encodes": [
     "amax_over_M",
+    "ceil",
     "nearest",
     "ocp_floor",
     "ocp_floor_x2",

@@ -49,7 +49,7 @@ BlockFormat(
     pad="error",
 )
 # block_size: int or (h, w)
-# scale_encode in {nearest, ue8m0_ceil, ue8m0_floor, ocp_floor, ocp_floor_x2,
+# scale_encode in {nearest, ceil, ue8m0_ceil, ue8m0_floor, ocp_floor, ocp_floor_x2,
 #                  amax_over_M, signed_peak}
 
 BlockRound(spec)
