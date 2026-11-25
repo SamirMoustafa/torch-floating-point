@@ -10,7 +10,7 @@ from floating_point.data_types import FloatingPoint
 from floating_point.round import Round
 
 _SCALE_ENCODES = frozenset(
-    {"nearest", "ue8m0_ceil", "ue8m0_floor", "ocp_floor", "ocp_floor_x2", "amax_over_M", "signed_peak"}
+    {"nearest", "ceil", "ue8m0_ceil", "ue8m0_floor", "ocp_floor", "ocp_floor_x2", "amax_over_M", "signed_peak"}
 )
 _PADS = frozenset({"error", "zero"})
 _TILE_RANK = 2
@@ -117,7 +117,7 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
 
     ``stat`` is block absmax for every policy except ``signed_peak``, which takes the
     signed value of maximum magnitude. OCP / AWS policies use ``stat`` directly;
-    ``nearest``, ``amax_over_M``, and the UE8M0 policies use ``stat / M``.
+    ``nearest``, ``ceil``, ``amax_over_M``, and the UE8M0 policies use ``stat / M``.
     """
     scale_fp = spec.scale_fp
     lo, hi = _scale_bounds(scale_fp)
@@ -146,6 +146,11 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
     if encode == "nearest":
         rounded = Round(scale_fp)(raw.abs())
         return rounded.abs().clamp(min=lo, max=hi)
+    if encode == "ceil":
+        # Smallest positive code >= raw; raw is already clamped to [lo, hi].
+        codes = raw.new_tensor(_positive_finite_values(scale_fp))
+        idx = torch.searchsorted(codes, raw).clamp(max=codes.numel() - 1)
+        return torch.where(raw.isnan(), raw, codes[idx])
     raise ValueError(f"unknown scale_encode {encode!r}")
 
 

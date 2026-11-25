@@ -262,6 +262,20 @@ def build_goldens() -> dict[str, Any]:
             }
         )
 
+    ceil_spec = BlockFormat(e2m1, e4m3, 16, 6.0, "ceil")
+    for amax in (0.0, 5.75, 6.0, 12.0, 4096.0):
+        encode_scale_cases.append(
+            {
+                "name": f"ceil_{amax}",
+                "elem": dump_fp(e2m1),
+                "scale": dump_fp(e4m3),
+                "M": 6.0,
+                "scale_encode": "ceil",
+                "stat": amax,
+                "s": dump_number(encode_one(amax, ceil_spec)),
+            }
+        )
+
     signed_spec = BlockFormat(e2m1, e4m3, 16, 6.0, "signed_peak")
     for stat in (0.0, 4.0, -4.0, 12.0):
         encode_scale_cases.append(

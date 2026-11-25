@@ -12,6 +12,7 @@ DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
 E2M1 = FloatingPoint(1, 2, 1, 1, 4, reserved_exponent=False)
 E4M3 = FloatingPoint(1, 4, 3, 7, 8, max_mantissa_at_max_exponent=6, reserved_exponent=False)
 UE8M0 = FloatingPoint(0, 8, 0, 127, 8, reserved_exponent=True)
+UE4M3 = FloatingPoint(0, 4, 3, 7, 7, reserved_exponent=False)
 # Hardware packings as fixtures — not package exports.
 NVFP4 = BlockFormat(E2M1, E4M3, 16, 6.0, "nearest")
 MXFP8 = BlockFormat(E4M3, UE8M0, 32, 448.0, "ue8m0_ceil")
@@ -187,6 +188,71 @@ class TestEncodePolicies(unittest.TestCase):
         x = torch.randn(2, 32)
         with self.assertRaises(ValueError):
             block_round(x, NVFP4, s_global=0.0)
+
+
+class TestCeilScaleEncode(unittest.TestCase):
+    """Issue #39: ``ceil`` is the smallest ``scale_fp`` code >= amax / M."""
+
+    ceil_spec = BlockFormat(E2M1, UE4M3, 16, 6.0, "ceil")
+    nearest_spec = BlockFormat(E2M1, UE4M3, 16, 6.0, "nearest")
+    codes = sorted(v for v in UE4M3.values if v > 0)
+
+    @staticmethod
+    def blocks(device, lo_exp, hi_exp):
+        g = torch.Generator().manual_seed(0)
+        mag = torch.exp2(torch.randint(lo_exp, hi_exp + 1, (256, 1), generator=g).float())
+        return (torch.randn(256, 64, generator=g) * mag).to(device)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_issue_example(self, device):
+        x = torch.tensor([[1.0, -2.0, 3.0, 5.7] * 4], device=device)
+        y, s, _ = block_round(x, self.nearest_spec, return_aux=True)
+        self.assertEqual(float(s), 0.9375)
+        self.assertEqual(float(y[0, 3]), 5.625)
+        y, s, _ = block_round(x, self.ceil_spec, return_aux=True)
+        self.assertEqual(float(s), 1.0)
+        self.assertEqual(float(y[0, 3]), 6.0)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_matches_searchsorted_workaround(self, device):
+        x = self.blocks(device, -12, 11)  # amax / M from below the smallest code to above the largest
+        codes = torch.tensor(self.codes, device=device)
+        peaks = x.reshape(*x.shape[:-1], -1, 16).abs().amax(-1)
+        s_ref = codes[torch.searchsorted(codes, (peaks / 6.0).clamp(max=codes[-1]))]
+        y, s, _ = block_round(x, self.ceil_spec, return_aux=True)
+        self.assertTrue(torch.equal(s.squeeze(-1), s_ref))
+        self.assertTrue(torch.equal(y, block_round(x, self.nearest_spec, scales=s_ref)))
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_never_clips_block_max(self, device):
+        x = self.blocks(device, -4, 4)
+        peaks = x.reshape(*x.shape[:-1], -1, 16).abs().amax(-1, keepdim=True)
+        _, s, _ = block_round(x, self.ceil_spec, return_aux=True)
+        self.assertTrue((peaks / s <= 6.0).all())
+        _, s, _ = block_round(x, self.nearest_spec, return_aux=True)
+        self.assertTrue((peaks / s > 6.0).any())
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_matches_ue8m0_ceil_on_power_of_two_codebook(self, device):
+        # amax / M on a 10-bit mantissa grid: column 0 is the exact powers of two, the rest stay clear
+        # of the few float32 steps above a power of two where ue8m0_ceil's ceil(log2) is not exact.
+        q = torch.exp2(torch.arange(-20.0, 21.0)).unsqueeze(1) * (1 + torch.arange(1024.0) / 1024)
+        stat = (448.0 * q).to(device)
+        s = encode_scale(stat, BlockFormat(E4M3, UE8M0, 32, 448.0, "ceil"))
+        self.assertTrue(torch.equal(s, encode_scale(stat, MXFP8)))
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_exact_code_zero_and_saturation(self, device):
+        codes = torch.tensor(self.codes, device=device)
+        lo, hi = self.codes[0], self.codes[-1]
+        self.assertTrue(torch.equal(encode_scale(codes * 6.0, self.ceil_spec), codes))
+        stat = torch.tensor([[0.0, 1e-6, 1e6, float("inf")]], device=device)
+        self.assertEqual(encode_scale(stat, self.ceil_spec).tolist(), [[lo, lo, hi, hi]])
+        nan = torch.tensor([[float("nan")]], device=device)
+        self.assertTrue(torch.isnan(encode_scale(nan, self.ceil_spec)).all())
+        y, s, _ = block_round(torch.zeros(1, 16, device=device), self.ceil_spec, return_aux=True)
+        self.assertEqual(float(s), lo)
+        self.assertTrue(torch.equal(y, torch.zeros_like(y)))
 
 
 class TestTwoD(unittest.TestCase):
