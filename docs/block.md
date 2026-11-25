@@ -35,6 +35,7 @@ y = BlockRound(mxfp4, rounder=MyRound)(x)
 | `s_global` | constant second-level scale; override per call with `s_global=` | `1.0` |
 | `zero_point` | affine reconstruct \(y = (e - z)\,s\,s_g\) | `0.0` |
 | `pad` | `"error"` or `"zero"` if a dim is not divisible | `"error"` |
+| `scale_underflow` | `"clamp"`: the scale never goes below the smallest positive `scale_fp` code. `"zero"`: the scale may round to zero and the block is flushed (below) | `"clamp"` |
 
 `scale_encode` is a string, not a callable (so a C++ kernel can stay nearest-only):
 
@@ -49,6 +50,8 @@ y = BlockRound(mxfp4, rounder=MyRound)(x)
 | `ocp_floor_carry` | \(X = 2^{\lfloor\log_2 a_{\max}\rfloor - e_{\max} + c}\), \(c = 1\) when \(a_{\max} / 2^{\lfloor\log_2 a_{\max}\rfloor} \ge 2 - 2^{-p}\) (the rounded peak carries into the next power of two), else \(0\); \(p\) = `mantissa_bits`, plus one if `exponent_bits > 0` | `scale_mode=3` ("Ceil if necessary") in [microxcaling](https://github.com/iclr2016codeshare/microscaling) |
 | `amax_over_M` | \(s = \mathrm{amax}/M\) clamped to `scale_fp` range (no codebook snap) | Hopper / Qwix / Ironwood software FP32 scales |
 | `signed_peak` | \(s = \mathrm{Round}(\mathrm{peak}/(-M))\) (sign of the max-magnitude value) | KleidiAI Q4_0 / `qsi4c32` |
+
+`scale_underflow="zero"` matches quantisers that lose a block when its scale rounds to zero ([microxcaling](https://github.com/iclr2016codeshare/microscaling) `scale_mode=143`, FP-Quant, fouroversix). It needs `scale_encode="nearest"` and a `scale_fp` with a zero code (so not UE8M0 or `subnormals=False`); anything else raises `ValueError`. A block is flushed when \(\mathrm{amax}/(M\,s_{\mathrm{global}})\) is at or below half the smallest positive scale code (the tie goes to zero, ties-to-even); an all-zero block is flushed too. A flushed block has \(s = 0\), \(e = 0\) and \(y = +0\), and the gradient on `x` stays the identity straight-through. All other blocks are unchanged. Absmax only: explicit `scales=` are used as given.
 
 Row vs column 1-D blocks: `dims=(-1,)` (last) or `dims=(-2,)` (chosen axis). 1×k / k×1 tiles: `block_size=(1, k)` or `(k, 1)`.
 

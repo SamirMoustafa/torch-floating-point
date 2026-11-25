@@ -48,10 +48,12 @@ BlockFormat(
     s_global=1.0,
     zero_point=0.0,
     pad="error",
+    scale_underflow="clamp",
 )
 # block_size: int or (h, w)
 # scale_encode in {nearest, ceil, ue8m0_ceil, ue8m0_floor, ocp_floor, ocp_floor_x2,
 #                  ocp_floor_carry, amax_over_M, signed_peak}
+# scale_underflow in {clamp, zero}; "zero" (nearest only) flushes a block whose scale rounds to zero
 
 BlockRound(spec)
 BlockRound(spec, rounder=MyRound)
