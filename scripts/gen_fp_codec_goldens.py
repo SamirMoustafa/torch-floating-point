@@ -276,6 +276,20 @@ def build_goldens() -> dict[str, Any]:
             }
         )
 
+    carry_spec = BlockFormat(e2m1, ue8m0, 32, 6.0, "ocp_floor_carry")
+    for amax in (0.0, 5.5, 6.875, 7.0, 7.5, 8.0):
+        encode_scale_cases.append(
+            {
+                "name": f"ocp_floor_carry_{amax}",
+                "elem": dump_fp(e2m1),
+                "scale": dump_fp(ue8m0),
+                "M": 6.0,
+                "scale_encode": "ocp_floor_carry",
+                "stat": amax,
+                "s": dump_number(encode_one(amax, carry_spec)),
+            }
+        )
+
     signed_spec = BlockFormat(e2m1, e4m3, 16, 6.0, "signed_peak")
     for stat in (0.0, 4.0, -4.0, 12.0):
         encode_scale_cases.append(

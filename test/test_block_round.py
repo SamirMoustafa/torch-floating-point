@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import torch
@@ -278,6 +279,72 @@ class TestNoSubnormalScale(unittest.TestCase):
         y, s, _ = block_round(x, BlockFormat(E2M1, UE2M2, 16, 6.0, "nearest"), return_aux=True)
         self.assertEqual(float(s), 0.15625)
         self.assertEqual(float(y[0, 0]), 6.0 * 0.15625)
+
+
+class TestOcpFloorCarryScaleEncode(unittest.TestCase):
+    """Issue #45: ``ocp_floor`` plus one exponent step only when the rounded peak carries."""
+
+    carry_spec = BlockFormat(E2M1, UE8M0, 4, 6.0, "ocp_floor_carry")
+    floor_spec = BlockFormat(E2M1, UE8M0, 4, 6.0, "ocp_floor")
+    x2_spec = BlockFormat(E2M1, UE8M0, 4, 6.0, "ocp_floor_x2")
+
+    @staticmethod
+    def blocks(device):
+        g = torch.Generator().manual_seed(0)
+        mag = torch.exp2(torch.randint(-8, 9, (256, 1), generator=g).float())
+        return (torch.randn(256, 64, generator=g) * mag).to(device)
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_issue_example(self, device):
+        x = torch.tensor([[7.5, 3.0, 1.0, -0.5, 5.5, 3.0, 1.0, -0.5]], device=device)
+        y, s, _ = block_round(x, self.carry_spec, return_aux=True)
+        self.assertEqual(s.flatten().tolist(), [2.0, 1.0])
+        self.assertEqual(y.tolist(), [[8.0, 3.0, 1.0, -0.0, 6.0, 3.0, 1.0, -0.5]])
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_matches_explicit_scales_workaround(self, device):
+        x = self.blocks(device)
+        peaks = x.reshape(*x.shape[:-1], -1, 4).abs().amax(-1)
+        e = torch.floor(torch.log2(peaks))
+        carry = peaks / 2**e >= 2 - 2.0 ** -(E2M1.mantissa_bits + (E2M1.exponent_bits > 0))
+        s_ref = 2 ** (e - math.floor(math.log2(6.0)) + carry)
+        y, s, _ = block_round(x, self.carry_spec, return_aux=True)
+        self.assertTrue(torch.equal(s.squeeze(-1), s_ref))
+        self.assertTrue(torch.equal(y, block_round(x, self.floor_spec, scales=s_ref)))
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_floor_without_carry_x2_with_carry(self, device):
+        x = self.blocks(device)
+        peaks = x.reshape(*x.shape[:-1], -1, 4).abs().amax(-1, keepdim=True)
+        carry = torch.frexp(peaks).mantissa >= 1.75 / 2  # peak in [7, 8) * 2**k
+        self.assertTrue(carry.any() and not carry.all())
+        _, s, _ = block_round(x, self.carry_spec, return_aux=True)
+        _, s_floor, _ = block_round(x, self.floor_spec, return_aux=True)
+        _, s_x2, _ = block_round(x, self.x2_spec, return_aux=True)
+        self.assertTrue(torch.equal(s, torch.where(carry, s_x2, s_floor)))
+        self.assertTrue((peaks / s < 7.0).all())  # the rounded peak never exceeds the element maximum 6
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_threshold_e2m1_and_integer_element(self, device):
+        # E2M1: threshold 1.75, inclusive. 7 already rounds to 8 (ties to even) under scale 1.
+        stat = torch.tensor([[6.0, 6.875, 7.0, 7.5, 8.0, 13.5, 14.0]], device=device)
+        self.assertEqual(encode_scale(stat, self.carry_spec).tolist(), [[1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 4.0]])
+        # Integer element (exponent_bits=0), codes k / 64 up to 127 / 64: threshold 2 - 2**-7 = 255 / 128.
+        mxint8 = BlockFormat(FloatingPoint(1, 0, 7, 0, 8), UE8M0, 4, 127 / 64, "ocp_floor_carry")
+        stat = torch.tensor([[1.0, 127 / 64, 509 / 256, 255 / 128, 511 / 256, 2.0]], device=device)
+        self.assertEqual(encode_scale(stat, mxint8).tolist(), [[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]])
+
+    @parameterized.expand([(d,) for d in DEVICES])
+    def test_zero_block_and_scale_clamp(self, device):
+        zeros = torch.zeros(1, 4, device=device)
+        y, s, _ = block_round(zeros, self.carry_spec, return_aux=True)
+        _, s_floor, _ = block_round(zeros, self.floor_spec, return_aux=True)
+        self.assertTrue(torch.isfinite(s).all())
+        self.assertTrue(torch.equal(s, s_floor))
+        self.assertTrue(torch.equal(y, zeros))
+        # The exponent is clamped to the scale codebook, as in ocp_floor.
+        stat = torch.tensor([[float("inf")]], device=device)
+        self.assertEqual(float(encode_scale(stat, self.carry_spec)), UE8M0.maximum)
 
 
 class TestTwoD(unittest.TestCase):
