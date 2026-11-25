@@ -22,6 +22,7 @@ _SCALE_ENCODES = frozenset(
         "signed_peak",
     }
 )
+_RATIO_ENCODES = frozenset({"nearest", "ceil", "ue8m0_ceil", "ue8m0_floor", "amax_over_M"})  # encode ``stat / M``
 _PADS = frozenset({"error", "zero"})
 _SCALE_UNDERFLOWS = frozenset({"clamp", "zero"})
 _TILE_RANK = 2
@@ -144,7 +145,7 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
     there ``stat / M`` at or below half the smallest positive code rounds to the zero code.
     """
     scale_fp = spec.scale_fp
-    lo, hi = _scale_bounds(scale_fp)
+    lo, _ = _scale_bounds(scale_fp)
     encode = spec.scale_encode
     if encode == "signed_peak":
         raw = torch.where(stat == 0, torch.full_like(stat, lo), stat / (-spec.M))
@@ -163,12 +164,17 @@ def encode_scale(stat: Tensor, spec: BlockFormat) -> Tensor:
         floor_exp = torch.floor(_log2_clamp(stat, lo))
         carry = stat / torch.exp2(floor_exp) >= 2.0 - 2.0 ** -(elem_fp.mantissa_bits + (elem_fp.exponent_bits > 0))
         return _pow2_from_unbiased_exp(floor_exp - _emax_elem(elem_fp) + carry, scale_fp)
+    return _encode_ratio(stat / spec.M, spec)
+
+
+def _encode_ratio(ratio: Tensor, spec: BlockFormat) -> Tensor:
+    """Encode ``ratio = stat / M`` for the policies of ``_RATIO_ENCODES``; zero takes the smallest code."""
+    scale_fp = spec.scale_fp
+    lo, hi = _scale_bounds(scale_fp)
+    encode = spec.scale_encode
     if spec.scale_underflow == "zero":  # nearest only: no clamp up to ``lo``, the kernel may return the zero code
-        return Round(scale_fp)(stat / spec.M)
-    raw = (stat / spec.M).clamp(min=lo, max=hi)
-    zero_mask = stat == 0
-    if zero_mask.any():
-        raw = torch.where(zero_mask, torch.full_like(raw, lo), raw)
+        return Round(scale_fp)(ratio)
+    raw = ratio.clamp(min=lo, max=hi)
     if encode == "ue8m0_ceil":
         return _pow2_from_unbiased_exp(torch.ceil(_log2_clamp(raw, lo)), scale_fp)
     if encode == "ue8m0_floor":
@@ -449,6 +455,16 @@ _ERRORS = frozenset({"mse", "mae", "abs_max"})
 _SGlobal = Optional[Union[Tensor, float]]
 
 
+def _block_error(diff: Tensor, error: Union[str, float], block_axes: Union[int, Tuple[int, ...]]) -> Tensor:
+    if error == "mse":
+        return diff.square().sum(dim=block_axes, keepdim=True)
+    if error == "mae":
+        return diff.abs().sum(dim=block_axes, keepdim=True)
+    if error == "abs_max":
+        return diff.abs().amax(dim=block_axes, keepdim=True)
+    return diff.abs().pow(error).sum(dim=block_axes, keepdim=True)
+
+
 def block_round_select(
     x: Tensor,
     specs: Sequence[BlockFormat],
@@ -486,12 +502,7 @@ def block_round_select(
             )
         y_i = block_round(x, spec, rounder=rounder, s_global=sg)
         diff = _as_blocks(_pad_work(_permute((y_i - x).detach(), layout), layout), layout)
-        if error == "mse":
-            err = diff.square().sum(dim=block_axes, keepdim=True)
-        elif error == "mae":
-            err = diff.abs().sum(dim=block_axes, keepdim=True)
-        else:
-            err = diff.abs().amax(dim=block_axes, keepdim=True)
+        err = _block_error(diff, error, block_axes)
         if i == 0:
             y, best, choice = y_i, err, torch.zeros(err.shape, dtype=torch.long, device=err.device)
             continue
@@ -500,3 +511,63 @@ def block_round_select(
         choice = torch.where(better, torch.full_like(choice, i), choice)
         y = torch.where(_to_orig(better.expand_as(diff), layout), y_i, y)
     return y, choice
+
+
+def block_round_search(
+    x: Tensor,
+    spec: BlockFormat,
+    factors: Sequence[float],
+    *,
+    error: Union[str, float] = "mse",
+    rounder: Type[Round] = Round,
+    s_global: _SGlobal = None,
+) -> Tuple[Tensor, Tensor]:
+    """Search the scale of each block over ``factors * amax / M``, then encode the winner and round.
+
+    Every candidate rounds the block with the scale ``f * amax / M`` as it is: not encoded, and
+    not under ``s_global``. The first factor with the smallest error wins: a later one only when
+    strictly better. ``error`` is the block ``"mse"``, ``"mae"``, or ``"abs_max"`` of ``y - x``,
+    or a positive number ``p`` for the block sum of ``|y - x| ** p``; zero-padded positions do
+    not count. The winning scale, divided by ``s_global``, is then encoded as ``spec`` says
+    (``scale_encode``, ``scale_underflow``) and the block is rounded with the encoded scale.
+
+    Returns ``(y, scales)``: ``scales`` is the encoded scale of each block, shaped like the
+    ``return_aux`` scales of ``block_round``. ``scale_encode`` must be one that encodes
+    ``amax / M`` (``nearest``, ``ceil``, ``ue8m0_ceil``, ``ue8m0_floor``, ``amax_over_M``), and
+    ``s_global`` one value for the tensor. Gradients are the STE on ``x``; the search is detached.
+    """
+    if isinstance(error, str):
+        if error not in _ERRORS:
+            raise ValueError(f"error must be one of {sorted(_ERRORS)} or a positive number, got {error!r}")
+    elif isinstance(error, bool) or not isinstance(error, (int, float)) or not 0 < error < math.inf:
+        raise ValueError(f"error must be one of {sorted(_ERRORS)} or a positive number, got {error!r}")
+    factors = [float(f) for f in factors]
+    if not factors or not all(0 < f < math.inf for f in factors):
+        raise ValueError(f"factors must be a non-empty sequence of positive finite numbers, got {factors}")
+    if spec.scale_encode not in _RATIO_ENCODES:
+        raise ValueError(f"scale_encode must be one of {sorted(_RATIO_ENCODES)}, got {spec.scale_encode!r}")
+    if spec.zero_point != 0:
+        raise ValueError("zero_point != 0 is not supported by block_round_search")
+    layout = _layout_for(tuple(x.shape), spec)
+    block_axes = -1 if layout.nd == 1 else (-3, -1)
+    xd = x.detach()
+    blocks = _as_blocks(_pad_work(_permute(xd, layout), layout), layout)
+    sg = _sg_blocks(s_global, spec, x, blocks, layout)
+    if sg.numel() != 1:
+        raise ValueError("s_global must be one value for the tensor in block_round_search")
+    start = _amax(blocks, layout) / spec.M
+    trial = torch.where(start == 0, torch.ones_like(start), start)  # an all-zero block has zero error
+    best = torch.full_like(start, math.inf)
+    factor = torch.ones_like(start)
+    for f in factors:
+        y_f = block_round(xd, spec, scales=f * trial, rounder=rounder, s_global=1.0)
+        err = _block_error(_as_blocks(_pad_work(_permute(y_f - xd, layout), layout), layout), error, block_axes)
+        better = err < best
+        best = torch.where(better, err, best)
+        factor = torch.where(better, torch.full_like(factor, f), factor)
+    s = _encode_ratio(factor * start / sg.abs(), spec)
+    flushed = s == 0  # scale_underflow="zero" only
+    y = block_round(x, spec, scales=torch.where(flushed, torch.ones_like(s), s), rounder=rounder, s_global=s_global)
+    if flushed.any():
+        y = torch.where(_to_orig(flushed.expand_as(blocks), layout), x - xd, y)
+    return y, s

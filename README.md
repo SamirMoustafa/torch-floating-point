@@ -162,6 +162,8 @@ y = BlockRound(nvfp4, rounder=MyRound)(x)
 
 `block_round_select(x, [spec_a, spec_b], s_global=[g_a, g_b], error="mse")` rounds with every spec and returns `(y, choice)`: per block the spec with the smallest error (`mse`, `mae`, or `abs_max`; the first wins a tie) and its index, as in Four Over Six and IF4.
 
+`block_round_search(x, spec, factors, error=2.4, s_global=g)` tries the scale `f * amax / M` of each block for every factor and returns `(y, scales)`: the block rounded with the best scale (the first wins a tie) after it is encoded as `spec` says, and the encoded scales, as in FP-Quant.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and pull-request expectations. Short version:
