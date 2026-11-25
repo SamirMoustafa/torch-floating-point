@@ -1,6 +1,6 @@
 # API
 
-Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `tensor_scale`, `round`, `inplace`.
+Public names: `FloatingPoint`, `Round`, `BlockFormat`, `BlockRound`, `block_round`, `block_round_select`, `tensor_scale`, `round`, `inplace`.
 
 ## `FloatingPoint`
 
@@ -64,7 +64,10 @@ Call as `rounder(x, scales=None, return_aux=False, s_global=None)`. Reconstruct 
 ```python
 block_round(x, spec, scales=None, rounder=Round, return_aux=False, s_global=None)
 tensor_scale(x, spec)  # detached amax / (M * scale_fp.maximum)
+y, choice = block_round_select(x, specs, error="mse", rounder=Round, s_global=None)
 ```
+
+`block_round_select` runs absmax `block_round` once per spec and keeps, for each block, the spec with the smallest `error` (`"mse"`, `"mae"`, or `"abs_max"`); the first spec wins a tie. `choice` is the `int64` index of the winner, shaped like the `return_aux` scales. `s_global` is `None`, one value, or a list with one entry per spec. Specs must share `block_size` and `dims`. See [Block scale](block.md#per-block-format-choice).
 
 ## Functional round
 
